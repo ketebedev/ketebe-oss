@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "name": "ketebe-search-quality-smoke",
+  "version": "2026-08-27.v1",
+  "queries": [
+    {
+      "id": "alpha-query",
+      "text": "alpha",
+      "vector": [1.0, 0.0],
+      "judgments": [
+        { "record_id": { "type": "u64", "value": 1 }, "relevance": 3 },
+        { "record_id": { "type": "u64", "value": 2 }, "relevance": 2 },
+        { "record_id": { "type": "u64", "value": 3 }, "relevance": 0 },
+        { "record_id": { "type": "u64", "value": 4 }, "relevance": 0 }
+      ]
+    },
+    {
+      "id": "beta-query",
+      "text": "beta",
+      "vector": [0.0, 1.0],
+      "judgments": [
+        { "record_id": { "type": "u64", "value": 1 }, "relevance": 0 },
+        { "record_id": { "type": "u64", "value": 2 }, "relevance": 0 },
+        { "record_id": { "type": "u64", "value": 3 }, "relevance": 3 },
+        { "record_id": { "type": "u64", "value": 4 }, "relevance": 2 }
+      ]
+    }
+  ]
+}

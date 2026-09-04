@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ketebe"
+version = "0.1.0"
+description = "First-party Python SDK for Ketebe"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+dependencies = ["httpx>=0.27,<1"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ketebe"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

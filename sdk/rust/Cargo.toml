@@ -1,0 +1,23 @@
+[package]
+name = "ketebe-sdk"
+description = "First-party Rust client SDK for Ketebe"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["time"] }
+
+[dev-dependencies]
+axum = "0.8"
+ketebe-server = { path = "../../crates/ketebe-server" }
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "time"] }
+
+[lints]
+workspace = true

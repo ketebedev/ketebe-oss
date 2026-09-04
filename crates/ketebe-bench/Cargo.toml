@@ -1,0 +1,20 @@
+[package]
+name = "ketebe-bench"
+description = "Ketebe reproducible benchmark and correctness harness"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+ketebe-core = { path = "../ketebe-core" }
+ketebe-server = { path = "../ketebe-server" }
+ketebe-storage = { path = "../ketebe-storage" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true

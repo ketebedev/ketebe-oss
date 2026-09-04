@@ -1,0 +1,171 @@
+syntax = "proto3";
+
+package ketebe.v0;
+
+enum DistanceMetric {
+  UNSPECIFIED = 0;
+  COSINE = 1;
+  DOT = 2;
+  L2 = 3;
+}
+
+enum ExecutionPreference {
+  AUTO = 0;
+  EXACT = 1;
+  HNSW = 2;
+}
+
+enum NullValue { NULL = 0; }
+
+message MetadataValue {
+  oneof kind {
+    NullValue null_value = 1;
+    bool bool_value = 2;
+    double number_value = 3;
+    string string_value = 4;
+    MetadataArray array_value = 5;
+    MetadataObject object_value = 6;
+  }
+}
+message MetadataArray { repeated MetadataValue values = 1; }
+message MetadataObject { map<string, MetadataValue> fields = 1; }
+message RecordId { oneof value { string string_value = 1; uint64 u64_value = 2; } }
+message ComparisonPredicate { repeated string path = 1; MetadataValue value = 2; }
+message ExistsPredicate { repeated string path = 1; }
+message InPredicate { repeated string path = 1; repeated MetadataValue values = 2; }
+message PredicateList { repeated Predicate predicates = 1; }
+message Predicate {
+  oneof kind {
+    ComparisonPredicate eq = 1;
+    ComparisonPredicate ne = 2;
+    ComparisonPredicate lt = 3;
+    ComparisonPredicate lte = 4;
+    ComparisonPredicate gt = 5;
+    ComparisonPredicate gte = 6;
+    ExistsPredicate exists = 7;
+    InPredicate in_values = 8;
+    ComparisonPredicate contains = 9;
+    PredicateList and = 10;
+    PredicateList or = 11;
+    Predicate not = 12;
+  }
+}
+
+enum LexicalAnalyzerKind {
+  LEXICAL_ANALYZER_UNSPECIFIED = 0;
+  STANDARD = 1;
+}
+message LexicalAnalyzerConfig {
+  LexicalAnalyzerKind kind = 1;
+  bool lowercase = 2;
+}
+message HnswConfig { uint32 m = 1; uint32 ef_construction = 2; uint32 ef_search = 3; }
+message ChunkingPolicy {
+  uint32 max_chars = 1;
+  uint32 overlap_chars = 2;
+}
+message CollectionIngestionSchema {
+  string embedding_profile = 1;
+  ChunkingPolicy chunking = 2;
+  bool index_chunk_text = 3;
+}
+message CollectionStats {
+  uint64 live_records = 1;
+  uint64 tombstones = 2;
+  uint64 immutable_segments = 3;
+  uint64 mutable_mutations = 4;
+  optional uint64 checkpoint_sequence = 5;
+  uint64 next_sequence = 6;
+}
+message Collection {
+  string id = 1;
+  uint32 dimension = 2;
+  DistanceMetric metric = 3;
+  CollectionStats stats = 4;
+  bool hnsw_ready = 5;
+  HnswConfig hnsw_config = 6;
+  repeated FieldPath lexical_fields = 7;
+  string lexical_index_state = 8;
+  LexicalAnalyzerConfig lexical_analyzer = 9;
+  CollectionIngestionSchema ingestion = 10;
+}
+message CreateCollectionRequest {
+  string id = 1;
+  uint32 dimension = 2;
+  DistanceMetric metric = 3;
+  repeated FieldPath lexical_fields = 4;
+  LexicalAnalyzerConfig lexical_analyzer = 5;
+  CollectionIngestionSchema ingestion = 6;
+}
+message GetCollectionRequest { string id = 1; }
+message ListCollectionsRequest {}
+message ListCollectionsResponse { repeated Collection collections = 1; }
+message DeleteCollectionRequest { string id = 1; }
+message DeleteCollectionResponse {}
+message UpdateLexicalSchemaRequest {
+  string id = 1;
+  repeated FieldPath lexical_fields = 2;
+  LexicalAnalyzerConfig lexical_analyzer = 3;
+}
+message RecordInput { RecordId id = 1; repeated float vector = 2; MetadataObject metadata = 3; }
+message UpsertRequest { string collection_id = 1; RecordInput record = 2; }
+message UpsertResponse { uint64 sequence_number = 1; }
+message BatchUpsertRequest { string collection_id = 1; repeated RecordInput records = 2; }
+message BatchUpsertResponse { repeated uint64 sequence_numbers = 1; }
+message DeleteRecordRequest { string collection_id = 1; RecordId id = 2; }
+message DeleteRecordResponse { uint64 sequence_number = 1; }
+
+message FieldPath { repeated string segments = 1; }
+message LexicalQuery {
+  string text = 1;
+  repeated FieldPath fields = 2;
+  optional uint32 rrf_k = 3;
+}
+message QueryRequest {
+  string collection_id = 1;
+  repeated float vector = 2;
+  DistanceMetric metric = 3;
+  uint32 top_k = 4;
+  ExecutionPreference execution = 5;
+  Predicate predicate = 6;
+  LexicalQuery lexical = 7;
+}
+message SearchHit {
+  RecordId id = 1;
+  float score = 2;
+  uint64 sequence_number = 3;
+  MetadataObject metadata = 4;
+  optional uint32 dense_rank = 5;
+  optional uint32 lexical_rank = 6;
+  optional float dense_score = 7;
+  optional float lexical_score = 8;
+}
+message SearchExplain {
+  string strategy = 1;
+  string reason = 2;
+  string collection_id = 3;
+  DistanceMetric metric = 4;
+  uint32 top_k = 5;
+  bool has_predicate = 6;
+  optional uint32 candidate_limit = 7;
+  bool fallback = 8;
+  bool hybrid = 9;
+  optional uint32 dense_candidates = 10;
+  optional uint32 lexical_candidates = 11;
+  optional uint32 rrf_k = 12;
+}
+message QueryResponse { repeated SearchHit hits = 1; SearchExplain explain = 2; }
+
+service Collections {
+  rpc CreateCollection(CreateCollectionRequest) returns (Collection);
+  rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
+  rpc GetCollection(GetCollectionRequest) returns (Collection);
+  rpc DeleteCollection(DeleteCollectionRequest) returns (DeleteCollectionResponse);
+  rpc UpdateLexicalSchema(UpdateLexicalSchemaRequest) returns (Collection);
+}
+service Records {
+  rpc Upsert(UpsertRequest) returns (UpsertResponse);
+  rpc BatchUpsert(BatchUpsertRequest) returns (BatchUpsertResponse);
+  rpc Delete(DeleteRecordRequest) returns (DeleteRecordResponse);
+}
+service Query { rpc Query(QueryRequest) returns (QueryResponse); }

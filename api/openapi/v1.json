@@ -1,0 +1,1463 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Ketebe REST API",
+    "version": "1.0.0",
+    "description": "Versioned public REST contract for Ketebe. Stable v0 resource paths and v1 retrieval resources are governed together by contract major version 1."
+  },
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "x-ketebe-contract-version": 1,
+  "x-ketebe-generated-client-boundary": "api/openapi/v1.json",
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "health",
+        "tags": [
+          "system"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "operationId": "ready",
+        "tags": [
+          "system"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "getMetrics",
+        "tags": [
+          "system"
+        ],
+        "responses": {
+          "200": {
+            "description": "Prometheus metrics",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v0/collections": {
+      "get": {
+        "operationId": "listCollections",
+        "tags": [
+          "collections"
+        ],
+        "responses": {
+          "200": {
+            "description": "Collections",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "collections"
+                  ],
+                  "properties": {
+                    "collections": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Collection"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCollection",
+        "tags": [
+          "collections"
+        ],
+        "responses": {
+          "201": {
+            "description": "Collection created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Collection"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCollection"
+              },
+              "example": {
+                "id": "docs",
+                "dimension": 384,
+                "metric": "cosine",
+                "lexical_fields": [
+                  [
+                    "title"
+                  ],
+                  [
+                    "body"
+                  ]
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v0/collections/{collection_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CollectionId"
+        }
+      ],
+      "get": {
+        "operationId": "getCollection",
+        "tags": [
+          "collections"
+        ],
+        "responses": {
+          "200": {
+            "description": "Collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Collection"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteCollection",
+        "tags": [
+          "collections"
+        ],
+        "responses": {
+          "204": {
+            "description": "Collection deleted"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v0/collections/{collection_id}/lexical-schema": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CollectionId"
+        }
+      ],
+      "put": {
+        "operationId": "updateLexicalSchema",
+        "tags": [
+          "collections"
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated collection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Collection"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLexicalSchema"
+              },
+              "example": {
+                "lexical_fields": [
+                  [
+                    "title"
+                  ],
+                  [
+                    "body"
+                  ]
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v0/collections/{collection_id}/records/{record_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CollectionId"
+        },
+        {
+          "$ref": "#/components/parameters/RecordId"
+        }
+      ],
+      "put": {
+        "operationId": "upsertRecord",
+        "tags": [
+          "records"
+        ],
+        "responses": {
+          "200": {
+            "description": "Mutation accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Mutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordUpsert"
+              },
+              "example": {
+                "vector": [
+                  0.1,
+                  0.2,
+                  0.3
+                ],
+                "metadata": {
+                  "title": "example"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteRecord",
+        "tags": [
+          "records"
+        ],
+        "responses": {
+          "200": {
+            "description": "Mutation accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Mutation"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v0/collections/{collection_id}/records:batchUpsert": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CollectionId"
+        }
+      ],
+      "post": {
+        "operationId": "batchUpsertRecords",
+        "tags": [
+          "records"
+        ],
+        "responses": {
+          "200": {
+            "description": "Batch mutation accepted"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchUpsert"
+              },
+              "example": {
+                "records": [
+                  {
+                    "id": {
+                      "type": "string",
+                      "value": "doc-1"
+                    },
+                    "vector": [
+                      0.1,
+                      0.2,
+                      0.3
+                    ],
+                    "metadata": {
+                      "title": "example"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v0/collections/{collection_id}/documents/{record_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CollectionId"
+        },
+        {
+          "$ref": "#/components/parameters/RecordId"
+        }
+      ],
+      "put": {
+        "operationId": "upsertDocument",
+        "tags": [
+          "documents"
+        ],
+        "responses": {
+          "200": {
+            "description": "Document embedded and stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentUpsert"
+              },
+              "example": {
+                "text": "Ketebe stores and retrieves vectors.",
+                "metadata": {
+                  "title": "Intro"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteDocument",
+        "tags": [
+          "documents"
+        ],
+        "responses": {
+          "200": {
+            "description": "Document generation deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v0/collections/{collection_id}/query": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CollectionId"
+        }
+      ],
+      "post": {
+        "operationId": "queryCollectionV0",
+        "tags": [
+          "query"
+        ],
+        "responses": {
+          "200": {
+            "description": "Query results"
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "deprecated": true,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/collections/{collection_id}/query": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CollectionId"
+        }
+      ],
+      "post": {
+        "operationId": "queryCollection",
+        "tags": [
+          "query"
+        ],
+        "responses": {
+          "200": {
+            "description": "Query results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryV1Response"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryV1"
+              },
+              "example": {
+                "vector": [
+                  0.1,
+                  0.2,
+                  0.3
+                ],
+                "text": "vector database",
+                "dense_candidates": 100,
+                "lexical_candidates": 100,
+                "top_k": 10,
+                "search_profile": "default",
+                "explain": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/collections/{collection_id}/search-profiles": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CollectionId"
+        }
+      ],
+      "get": {
+        "operationId": "listSearchProfiles",
+        "tags": [
+          "search-profiles"
+        ],
+        "responses": {
+          "200": {
+            "description": "Search profiles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SearchProfile"
+                  }
+                }
+              }
+            },
+            "404": {
+              "$ref": "#/components/responses/Error"
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSearchProfile",
+        "tags": [
+          "search-profiles"
+        ],
+        "responses": {
+          "201": {
+            "description": "Search profile created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchProfile"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchProfileCreate"
+              },
+              "example": {
+                "name": "balanced",
+                "version": 1,
+                "execution": "auto",
+                "dense_candidates": 100,
+                "lexical_candidates": 100,
+                "rrf_k": 60,
+                "final_top_k": 10,
+                "timeout_ms": 500
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/collections/{collection_id}/search-profiles/{selector}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CollectionId"
+        },
+        {
+          "$ref": "#/components/parameters/SearchProfileSelector"
+        }
+      ],
+      "get": {
+        "operationId": "getSearchProfile",
+        "tags": [
+          "search-profiles"
+        ],
+        "responses": {
+          "200": {
+            "description": "Resolved search profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchProfile"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteSearchProfile",
+        "tags": [
+          "search-profiles"
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted search profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchProfile"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v0/jobs/{job_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/JobId"
+        }
+      ],
+      "get": {
+        "operationId": "getJob",
+        "tags": [
+          "jobs"
+        ],
+        "responses": {
+          "200": {
+            "description": "Job state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v0/jobs/{job_id}/cancel": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/JobId"
+        }
+      ],
+      "post": {
+        "operationId": "cancelJob",
+        "tags": [
+          "jobs"
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated job state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v0/collections/{collection_id}/embedding-migration": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CollectionId"
+        }
+      ],
+      "get": {
+        "operationId": "getEmbeddingMigration",
+        "tags": [
+          "migrations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Migration state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmbeddingMigrationState"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "startEmbeddingMigration",
+        "tags": [
+          "migrations"
+        ],
+        "responses": {
+          "202": {
+            "description": "Migration started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmbeddingMigrationState"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartEmbeddingMigration"
+              },
+              "example": {
+                "target_profile": "openai-v2"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v0/collections/{collection_id}/embedding-migration/catch-up": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CollectionId"
+        }
+      ],
+      "post": {
+        "operationId": "catchUpEmbeddingMigration",
+        "tags": [
+          "migrations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Migration state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmbeddingMigrationState"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v0/collections/{collection_id}/embedding-migration/catch-up-job": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CollectionId"
+        }
+      ],
+      "post": {
+        "operationId": "startEmbeddingMigrationCatchUpJob",
+        "tags": [
+          "migrations",
+          "jobs"
+        ],
+        "responses": {
+          "202": {
+            "description": "Catch-up job submitted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v0/collections/{collection_id}/embedding-migration/activate": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/CollectionId"
+        }
+      ],
+      "post": {
+        "operationId": "activateEmbeddingMigration",
+        "tags": [
+          "migrations"
+        ],
+        "responses": {
+          "200": {
+            "description": "Activated migration state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmbeddingMigrationState"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "CollectionId": {
+        "name": "collection_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "RecordId": {
+        "name": "record_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "JobId": {
+        "name": "job_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "SearchProfileSelector": {
+        "name": "selector",
+        "in": "path",
+        "required": true,
+        "description": "Profile name for latest resolution or pinned name@version.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Stable Ketebe error envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Status": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/Error"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "FieldPaths": {
+        "type": "array",
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateCollection": {
+        "type": "object",
+        "required": [
+          "id",
+          "dimension",
+          "metric"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "dimension": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "cosine",
+              "dot",
+              "l2"
+            ]
+          },
+          "lexical_fields": {
+            "$ref": "#/components/schemas/FieldPaths"
+          },
+          "analyzer": {
+            "type": "object"
+          },
+          "ingestion": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        }
+      },
+      "UpdateLexicalSchema": {
+        "type": "object",
+        "properties": {
+          "lexical_fields": {
+            "$ref": "#/components/schemas/FieldPaths"
+          },
+          "analyzer": {
+            "type": "object"
+          }
+        }
+      },
+      "Collection": {
+        "type": "object",
+        "required": [
+          "id",
+          "dimension",
+          "metric"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "dimension": {
+            "type": "integer"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "lexical_fields": {
+            "$ref": "#/components/schemas/FieldPaths"
+          },
+          "analyzer": {
+            "type": "object"
+          },
+          "ingestion": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "stats": {
+            "type": "object"
+          },
+          "index": {
+            "type": "object"
+          },
+          "lexical": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": true
+      },
+      "RecordId": {
+        "type": "object",
+        "required": [
+          "type",
+          "value"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "string",
+              "u64"
+            ]
+          },
+          "value": {}
+        }
+      },
+      "RecordUpsert": {
+        "type": "object",
+        "required": [
+          "vector"
+        ],
+        "properties": {
+          "vector": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "number"
+            }
+          },
+          "metadata": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        }
+      },
+      "BatchUpsert": {
+        "type": "object",
+        "required": [
+          "records"
+        ],
+        "properties": {
+          "records": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "Mutation": {
+        "type": "object",
+        "required": [
+          "sequence_number"
+        ],
+        "properties": {
+          "sequence_number": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "DocumentUpsert": {
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "metadata": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "chunking": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "source": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        }
+      },
+      "QueryV1": {
+        "type": "object",
+        "anyOf": [
+          {
+            "required": [
+              "vector"
+            ]
+          },
+          {
+            "required": [
+              "text"
+            ]
+          }
+        ],
+        "properties": {
+          "vector": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "number"
+            }
+          },
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "top_k": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 10
+          },
+          "predicate": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "execution": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "exact",
+              "hnsw"
+            ],
+            "default": "auto"
+          },
+          "dense_candidates": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "lexical_candidates": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "rrf_k": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 60
+          },
+          "search_profile": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "include_metadata": {
+            "type": "boolean",
+            "default": true
+          },
+          "include_provenance": {
+            "type": "boolean",
+            "default": false
+          },
+          "explain": {
+            "type": "boolean",
+            "default": false
+          },
+          "timeout_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "rerank": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "paginate": {
+            "type": "boolean",
+            "default": false,
+            "description": "Opt in to stable cursor pagination; cursor continuation implies pagination."
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Opaque continuation cursor returned by a previous paginated query."
+          }
+        }
+      },
+      "QueryV1Response": {
+        "type": "object",
+        "required": [
+          "api_version",
+          "hits"
+        ],
+        "properties": {
+          "api_version": {
+            "const": "v1"
+          },
+          "hits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "score",
+                "sequence_number"
+              ],
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/RecordId"
+                },
+                "score": {
+                  "type": "number"
+                },
+                "sequence_number": {
+                  "type": "integer"
+                },
+                "metadata": {
+                  "type": "object"
+                },
+                "dense_rank": {
+                  "type": "integer"
+                },
+                "lexical_rank": {
+                  "type": "integer"
+                },
+                "dense_score": {
+                  "type": "number"
+                },
+                "lexical_score": {
+                  "type": "number"
+                },
+                "rerank_score": {
+                  "type": "number"
+                },
+                "original_rank": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "explain": {
+            "type": "object"
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Opaque continuation cursor when another stable page exists."
+          }
+        }
+      },
+      "SearchProfileCreate": {
+        "type": "object",
+        "required": [
+          "name",
+          "version"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "execution": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "exact",
+              "hnsw"
+            ],
+            "default": "auto"
+          },
+          "dense_candidates": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "lexical_candidates": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "rrf_k": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 60
+          },
+          "final_top_k": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 10
+          },
+          "timeout_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "rerank": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        }
+      },
+      "SearchProfile": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SearchProfileCreate"
+          },
+          {
+            "type": "object",
+            "required": [
+              "pinned_id"
+            ],
+            "properties": {
+              "pinned_id": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "Job": {
+        "type": "object",
+        "description": "Durable asynchronous job record. Wire fields are forward-compatible.",
+        "additionalProperties": true
+      },
+      "StartEmbeddingMigration": {
+        "type": "object",
+        "required": [
+          "target_profile"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "target_profile": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "EmbeddingMigrationState": {
+        "type": "object",
+        "description": "Embedding migration state and cutover frontier.",
+        "additionalProperties": true
+      }
+    }
+  }
+}

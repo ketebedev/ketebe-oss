@@ -1,0 +1,15 @@
+[package]
+name = "ketebe-storage"
+description = "Storage abstractions for Ketebe"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+ketebe-core = { path = "../ketebe-core" }
+
+[lints]
+workspace = true

@@ -1,0 +1,24 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/ketebe-core",
+    "crates/ketebe-storage",
+    "crates/ketebe-server",
+    "crates/ketebe-bench",
+    "sdk/rust",
+    "integrations/mcp",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "Apache-2.0"
+repository = "https://github.com/ketebedev/ketebe-oss"
+authors = ["Ketebe contributors"]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

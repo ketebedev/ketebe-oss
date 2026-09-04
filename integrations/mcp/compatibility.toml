@@ -1,0 +1,8 @@
+# Public MCP compatibility contract. This file intentionally contains no storage,
+# WAL, shard, index or on-disk format version because MCP evolves independently
+# from Ketebe storage internals.
+
+adapter_version = "0.1.0"
+mcp_protocol_versions = ["2025-06-18"]
+tool_schema_version = "v0"
+transports = ["stdio", "streamable-http"]

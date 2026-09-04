@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+package ketebe.v1;
+
+enum ExecutionPreference {
+  AUTO = 0;
+  EXACT = 1;
+  HNSW = 2;
+}
+
+enum RerankFailurePolicy {
+  RERANK_FAIL = 0;
+  RERANK_PRESERVE_CANDIDATE_ORDER = 1;
+}
+
+enum NullValue { NULL = 0; }
+message MetadataValue {
+  oneof kind {
+    NullValue null_value = 1;
+    bool bool_value = 2;
+    double number_value = 3;
+    string string_value = 4;
+    MetadataArray array_value = 5;
+    MetadataObject object_value = 6;
+  }
+}
+message MetadataArray { repeated MetadataValue values = 1; }
+message MetadataObject { map<string, MetadataValue> fields = 1; }
+message RecordId { oneof value { string string_value = 1; uint64 u64_value = 2; } }
+message ComparisonPredicate { repeated string path = 1; MetadataValue value = 2; }
+message ExistsPredicate { repeated string path = 1; }
+message InPredicate { repeated string path = 1; repeated MetadataValue values = 2; }
+message PredicateList { repeated Predicate predicates = 1; }
+message Predicate {
+  oneof kind {
+    ComparisonPredicate eq = 1;
+    ComparisonPredicate ne = 2;
+    ComparisonPredicate lt = 3;
+    ComparisonPredicate lte = 4;
+    ComparisonPredicate gt = 5;
+    ComparisonPredicate gte = 6;
+    ExistsPredicate exists = 7;
+    InPredicate in_values = 8;
+    ComparisonPredicate contains = 9;
+    PredicateList and = 10;
+    PredicateList or = 11;
+    Predicate not = 12;
+  }
+}
+
+message FieldPath { repeated string segments = 1; }
+
+message RerankQuery {
+  string profile = 1;
+  uint32 top_n = 2;
+  optional string query = 3;
+  repeated FieldPath text_fields = 4;
+  bool include_metadata = 5;
+  RerankFailurePolicy failure_policy = 6;
+}
+
+message QueryRequest {
+  string collection_id = 1;
+  optional DenseQuery dense = 2;
+  optional LexicalQuery lexical = 3;
+  uint32 top_k = 4;
+  Predicate predicate = 5;
+  ExecutionPreference execution = 6;
+  optional string search_profile = 7;
+  optional bool include_metadata = 8;
+  bool include_provenance = 9;
+  bool explain = 10;
+  optional uint64 timeout_ms = 11;
+  optional RerankQuery rerank = 12;
+  bool paginate = 13;
+  optional string cursor = 14;
+}
+message DenseQuery { repeated float vector = 1; optional uint32 candidates = 2; }
+message LexicalQuery { string text = 1; optional uint32 candidates = 2; optional uint32 rrf_k = 3; }
+message SearchHit {
+  RecordId id = 1;
+  float score = 2;
+  uint64 sequence_number = 3;
+  MetadataObject metadata = 4;
+  optional uint32 dense_rank = 5;
+  optional uint32 lexical_rank = 6;
+  optional float dense_score = 7;
+  optional float lexical_score = 8;
+  optional float rerank_score = 9;
+  optional uint32 original_rank = 10;
+}
+message RerankExplain {
+  string profile = 1;
+  string provider = 2;
+  uint32 input_candidates = 3;
+  bool applied = 4;
+  optional string fallback_reason = 5;
+}
+message SearchExplain {
+  string mode = 1;
+  string strategy = 2;
+  string reason = 3;
+  uint32 top_k = 4;
+  optional uint32 dense_candidates = 5;
+  optional uint32 lexical_candidates = 6;
+  optional uint32 rrf_k = 7;
+  bool has_predicate = 8;
+  string search_profile = 9;
+  optional uint64 timeout_ms = 10;
+  optional RerankExplain rerank = 11;
+}
+message QueryResponse {
+  string api_version = 1;
+  repeated SearchHit hits = 2;
+  optional SearchExplain explain = 3;
+  optional string next_cursor = 4;
+}
+service Query { rpc Query(QueryRequest) returns (QueryResponse); }
