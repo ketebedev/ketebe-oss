@@ -23,7 +23,88 @@ jobs:
         run: cargo check --workspace --all-targets --all-features
       - name: Clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
-      - name: Test
-        env:
-          RUSTFLAGS: -C link-arg=-Wl,--threads=1
-        run: cargo test --workspace --all-features --jobs 2
+
+  test:
+    name: test (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - ketebe-core
+          - ketebe-storage
+          - ketebe-bench
+          - ketebe-sdk
+          - ketebe-mcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - name: Test ${{ matrix.package }}
+        run: cargo test -p ${{ matrix.package }} --all-features
+
+  discover-server-tests:
+    runs-on: ubuntu-latest
+    outputs:
+      tests: ${{ steps.tests.outputs.tests }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: tests
+        name: Discover ketebe-server integration tests
+        shell: bash
+        run: |
+          tests=$(find crates/ketebe-server/tests -maxdepth 1 -type f -name '*.rs' -printf '%f\n' \
+            | sed 's/\.rs$//' \
+            | sort \
+            | jq -R -s -c 'split("\n")[:-1]')
+          echo "tests=$tests" >> "$GITHUB_OUTPUT"
+
+  test-server-integration:
+    name: test (ketebe-server/${{ matrix.test }})
+    needs: discover-server-tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJSON(needs.discover-server-tests.outputs.tests) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - name: Test ketebe-server integration target ${{ matrix.test }}
+        run: cargo test -p ketebe-server --test "${{ matrix.test }}" --all-features
+
+  test-server-lib:
+    name: test (ketebe-server/lib)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - name: Test ketebe-server library
+        run: cargo test -p ketebe-server --lib --all-features
+
+  test-server-bins:
+    name: test (ketebe-server/bins)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - name: Test ketebe-server binaries
+        run: cargo test -p ketebe-server --bins --all-features
+
+  test-server-docs:
+    name: test (ketebe-server/docs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.0
+      - name: Test ketebe-server doctests
+        run: cargo test -p ketebe-server --doc --all-features
