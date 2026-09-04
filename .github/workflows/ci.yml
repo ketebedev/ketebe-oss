@@ -24,4 +24,6 @@ jobs:
       - name: Clippy
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - name: Test
-        run: cargo test --workspace --all-features
+        env:
+          RUSTFLAGS: -C link-arg=-Wl,--threads=1
+        run: cargo test --workspace --all-features --jobs 2
