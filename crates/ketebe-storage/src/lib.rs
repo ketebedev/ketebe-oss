@@ -2,6 +2,7 @@
 
 mod checkpoint;
 mod compaction;
+mod control_plane_store;
 #[allow(clippy::possible_missing_else)]
 mod cost_planner;
 mod encryption;
@@ -27,6 +28,7 @@ pub use checkpoint::{Checkpoint, CheckpointError, CheckpointStore};
 pub use compaction::{
     CompactionError, compact_segments, garbage_collect_segment_store, garbage_collect_segments,
 };
+pub use control_plane_store::{ControlPlaneStore, ControlPlaneStoreError};
 pub use cost_planner::{
     CostReason, DEFAULT_ANN_MIN_RECORDS, ExecutionPreference, ExecutionStrategy, PlanReason,
     PlannedSearchHit, PlannerConfig, PlannerError, QueryRequest, QueryResponse, SearchExplain,

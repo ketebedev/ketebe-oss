@@ -1,3 +1,6 @@
+use ketebe_core::{
+    Organization, OrganizationId, Project, ProjectId, ResourceLifecycleState, ResourceTimestamps,
+};
 use ketebe_mcp::{
     ketebe::KetebeApi,
     retrieval::AgentRecordId,
@@ -6,8 +9,9 @@ use ketebe_mcp::{
 use ketebe_server::{
     AppState, AuthenticationError, AuthenticationService, AuthorizationService, Credential,
     CredentialAuthenticator, DeterministicEmbeddingProvider, EmbeddingProvider, Principal,
-    ProjectRole, RuntimeCatalog, app, app_with_authentication,
+    RuntimeCatalog, app, app_with_authentication,
 };
+use ketebe_storage::ControlPlaneStore;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -49,9 +53,9 @@ struct ProjectAuthenticator;
 impl CredentialAuthenticator for ProjectAuthenticator {
     fn authenticate(&self, credential: &Credential) -> Result<Principal, AuthenticationError> {
         match credential.expose_secret() {
-            "project-a-token" => Principal::for_project("subject-a", "project-a"),
-            "project-a-reader-token" => Principal::for_project("reader-a", "project-a"),
-            "project-b-token" => Principal::for_project("subject-b", "project-b"),
+            "project-a-token" => Principal::for_workload_project("subject-a", "project-a"),
+            "project-a-reader-token" => Principal::for_workload_project("reader-a", "project-a"),
+            "project-b-token" => Principal::for_workload_project("subject-b", "project-b"),
             _ => Err(AuthenticationError::InvalidCredential),
         }
     }
@@ -209,10 +213,37 @@ async fn mcp_search_matches_public_query_dense_sparse_hybrid_and_filtering() {
 #[tokio::test]
 async fn mcp_search_is_project_scoped_and_undiscoverable_cross_project() {
     let dir = temp_dir();
+    let control_plane = ControlPlaneStore::open(dir.join("control-plane")).expect("control-plane");
+    let organization_id = OrganizationId::new("org-a").expect("organization id");
+    control_plane
+        .create_organization(
+            Organization::new(
+                organization_id.clone(),
+                "ACME",
+                "acme",
+                ResourceLifecycleState::Active,
+                ResourceTimestamps::new(10, 10).expect("timestamps"),
+            )
+            .expect("organization"),
+        )
+        .expect("create organization");
+    for project in ["project-a", "project-b"] {
+        let project_id = ProjectId::new(project).expect("project id");
+        control_plane
+            .create_project(
+                Project::new(
+                    project_id.clone(),
+                    organization_id.clone(),
+                    project,
+                    project,
+                    ResourceLifecycleState::Active,
+                    ResourceTimestamps::new(10, 10).expect("timestamps"),
+                )
+                .expect("project"),
+            )
+            .expect("create project");
+    }
     let authorization = AuthorizationService::required(&dir).expect("authorization");
-    authorization
-        .set_project_role("project-a", "reader-a", ProjectRole::Reader)
-        .expect("reader role");
     let state =
         AppState::with_data_dir_and_threshold(RuntimeCatalog::empty_ready(), dir.clone(), 100)
             .with_authorization(authorization);

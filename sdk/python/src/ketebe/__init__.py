@@ -1,6 +1,8 @@
 from .client import Client
 from .errors import ApiError, KetebeError, TransportError
 from .models import (
+    Organization,
+    Project,
     BatchRecordUpsert,
     CreateCollection,
     DocumentUpsert,
@@ -18,6 +20,8 @@ __all__ = [
     "CreateCollection",
     "DocumentUpsert",
     "KetebeError",
+    "Organization",
+    "Project",
     "QueryHit",
     "QueryRequest",
     "QueryResponse",

@@ -2,11 +2,40 @@
 
 Ketebe is an open-source retrieval and vector data platform for hybrid search, ingestion, embedding lifecycle management, and AI-agent retrieval.
 
-## Current release status
+## Standalone Docker Compose
 
-Ketebe is preparing its first public v0.9 release. The core product surface is implemented and tested, while packaged release artifacts and the final container-based onboarding flow are still being finalized.
+The supported v0.9 standalone onboarding path is Docker Compose:
 
-Do not treat unreleased container, Helm, or binary commands as stable installation contracts yet.
+```bash
+docker compose up -d
+```
+
+This starts the published Ketebe server image with a persistent named volume and the deterministic default Organization/Project bootstrap.
+
+See [Standalone Docker Compose quickstart](operations/compose-quickstart.md) for health/readiness checks, an end-to-end write/query example, restart persistence and teardown.
+
+## Build the server container
+
+The main server image can be built directly from the repository:
+
+```bash
+docker build -t ketebe-server:local .
+```
+
+Run it with persistent storage:
+
+```bash
+docker volume create ketebe-data
+
+docker run --rm \
+  --name ketebe-server \
+  -p 7610:7610 \
+  -p 7611:7611 \
+  -v ketebe-data:/var/lib/ketebe \
+  ketebe-server:local
+```
+
+See [Server container](operations/container.md) for the runtime, health and persistence contract.
 
 ## Build from source
 
@@ -42,9 +71,10 @@ The machine-readable REST contract is maintained under [`api/openapi`](../api/op
 - [Ingestion](guides/ingestion.md)
 - [Hybrid search](guides/hybrid-search.md)
 - [Embeddings](guides/embeddings.md)
+- [Server container](operations/container.md)
 - [Security and operations](operations/security.md)
 - [MCP quickstart](mcp/quickstart.md)
 
-## Target v0.9 onboarding
+## v0.9 onboarding
 
-The intended v0.9 first-run experience is a persistent standalone container deployment, followed by an end-to-end create, ingest, and query workflow. Exact release commands will be documented only after the corresponding artifacts are published and validated.
+Docker Compose is the standalone first-run path. Published release artifact smoke/restart validation remains separately gated before a public release candidate is declared.

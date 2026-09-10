@@ -82,6 +82,28 @@ fn openapi_v1_is_a_stable_additive_client_contract() {
         );
     }
 
+    let project_context = &spec["components"]["parameters"]["ProjectContext"];
+    assert_eq!(project_context["name"], "X-Ketebe-Project");
+    assert_eq!(project_context["in"], "header");
+    assert_eq!(project_context["required"], false);
+    assert_eq!(spec["x-ketebe-project-context-header"], "X-Ketebe-Project");
+    let query_parameters =
+        operation(&spec, "post", "/v1/collections/{collection_id}/query")["parameters"]
+            .as_array()
+            .expect("query parameters");
+    assert!(
+        query_parameters
+            .iter()
+            .any(|parameter| { parameter["$ref"] == "#/components/parameters/ProjectContext" })
+    );
+    assert!(
+        operation(&spec, "get", "/v0/organizations")["parameters"]
+            .as_array()
+            .is_none_or(|parameters| parameters.iter().all(|parameter| {
+                parameter["$ref"] != "#/components/parameters/ProjectContext"
+            }))
+    );
+
     let envelope = &spec["components"]["schemas"]["ErrorEnvelope"];
     assert_eq!(envelope["additionalProperties"], false);
     assert!(

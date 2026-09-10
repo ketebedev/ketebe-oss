@@ -20,6 +20,76 @@ pub struct CollectionParams {
     pub collection: String,
 }
 
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+pub struct OrganizationProjectsParams {
+    pub organization_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema)]
+pub struct ProjectParams {
+    pub project_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
+pub struct OrganizationView {
+    pub id: String,
+    pub name: String,
+    pub slug: String,
+    pub lifecycle: String,
+}
+
+#[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
+pub struct ProjectView {
+    pub id: String,
+    pub organization_id: String,
+    pub name: String,
+    pub slug: String,
+    pub lifecycle: String,
+}
+
+#[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
+pub struct ListOrganizationsOutput {
+    pub organizations: Vec<OrganizationView>,
+}
+
+#[derive(Clone, Debug, Serialize, JsonSchema, PartialEq, Eq)]
+pub struct ListProjectsOutput {
+    pub projects: Vec<ProjectView>,
+}
+
+impl From<ketebe_sdk::Organization> for OrganizationView {
+    fn from(value: ketebe_sdk::Organization) -> Self {
+        Self {
+            id: value.id,
+            name: value.name,
+            slug: value.slug,
+            lifecycle: match value.lifecycle {
+                ketebe_sdk::ResourceLifecycle::Active => "active",
+                ketebe_sdk::ResourceLifecycle::Suspended => "suspended",
+                ketebe_sdk::ResourceLifecycle::Deleting => "deleting",
+            }
+            .to_string(),
+        }
+    }
+}
+
+impl From<ketebe_sdk::Project> for ProjectView {
+    fn from(value: ketebe_sdk::Project) -> Self {
+        Self {
+            id: value.id,
+            organization_id: value.organization_id,
+            name: value.name,
+            slug: value.slug,
+            lifecycle: match value.lifecycle {
+                ketebe_sdk::ResourceLifecycle::Active => "active",
+                ketebe_sdk::ResourceLifecycle::Suspended => "suspended",
+                ketebe_sdk::ResourceLifecycle::Deleting => "deleting",
+            }
+            .to_string(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, JsonSchema, PartialEq)]
 pub struct CollectionView {
     pub id: String,

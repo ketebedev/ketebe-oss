@@ -6,7 +6,10 @@ mod authentication;
 mod authorization;
 mod authorization_http;
 mod backup;
+mod bootstrap_migration;
 mod chunking;
+mod control_plane_api;
+mod control_plane_http;
 mod cursor;
 mod data_plane_catalog;
 mod data_plane_request;
@@ -31,7 +34,10 @@ mod lifecycle;
 mod management;
 mod management_http;
 mod observability;
+mod organization_governance;
+mod organization_membership;
 mod profiles_http;
+mod project_membership;
 mod provenance;
 mod query_embedding_http;
 mod query_runtime;
@@ -47,6 +53,7 @@ mod search_profiles_http;
 mod secrets;
 mod semantic_chunking;
 mod semantic_chunking_service;
+mod service_accounts;
 mod standalone;
 mod stream_ingestion_http;
 mod token_chunking;
@@ -74,6 +81,7 @@ pub fn app_with_authentication(
         .merge(profiles_http::routes(state.clone()))
         .merge(jobs_http::routes(state.clone()))
         .merge(stream_ingestion_http::routes(state.clone()))
+        .merge(control_plane_http::routes(state.clone()))
         .merge(management_http::routes(state))
         .layer(axum::middleware::from_fn_with_state(
             authorization_state,
@@ -88,8 +96,8 @@ pub fn app_with_authentication(
 
 pub use api_keys::{ApiKeyError, ApiKeyId, ApiKeyMetadata, ApiKeyStore, IssuedApiKey};
 pub use audit::{
-    AuditCategory, AuditError, AuditEvent, AuditOrigin, AuditResult, AuditService, AuditSink,
-    JsonlAuditSink, NoopAuditSink,
+    AuditCategory, AuditContext, AuditError, AuditEvent, AuditOrigin, AuditResult, AuditService,
+    AuditSink, JsonlAuditSink, NoopAuditSink,
 };
 pub use authentication::{
     AuthenticationError, AuthenticationMode, AuthenticationService, Credential,
@@ -103,9 +111,16 @@ pub use backup::{
     BACKUP_MANIFEST_VERSION, BackupError, BackupFileEntry, BackupManifest, BackupRepository,
     BackupService, DerivedIndexBackupPolicy, LocalBackupRepository, RestoreResult,
 };
+pub use bootstrap_migration::{
+    BootstrapMigrationError, BootstrapMigrationResult, bootstrap_default_control_plane,
+};
 pub use chunking::{
     CHUNK_METADATA_KEY, ChunkedDocument, ChunkedDocumentResult, ChunkingConfig, ChunkingError,
     ChunkingService, TextChunk, chunk_record_id, chunk_text,
+};
+pub use control_plane_api::{
+    ControlPlaneApiError, ControlPlaneApiService, CreateOrganizationInput, CreateProjectInput,
+    UpdateOrganizationInput, UpdateProjectInput,
 };
 pub use cursor::CursorError;
 pub use data_plane_catalog::{CollectionNamespaceCatalog, CollectionNamespaceError};
@@ -152,6 +167,15 @@ pub use kafka_ingestion::{
 pub use lifecycle::{Lifecycle, LifecyclePhase, LifecycleWriteGuard};
 pub use management::{CollectionInfo, CollectionService, HnswState, ManagementError};
 pub use observability::{ObservabilityGuard, init_observability};
+pub use organization_governance::{
+    EffectiveProjectGovernancePolicy, OrganizationGovernanceError, OrganizationGovernancePolicy,
+    OrganizationGovernanceService, ProjectGovernanceOverride,
+};
+pub use organization_membership::{
+    OrganizationAction, OrganizationMembership, OrganizationMembershipError,
+    OrganizationMembershipService, OrganizationRole,
+};
+pub use project_membership::{ProjectMembership, ProjectMembershipError, ProjectMembershipService};
 pub use provenance::{
     CONTENT_METADATA_KEY, ProvenanceError, SOURCE_METADATA_KEY, SourceChange,
     apply_chunk_content_hash, apply_document_provenance, canonical_content_hash,
@@ -198,6 +222,10 @@ pub use semantic_chunking::{
 pub use semantic_chunking_service::{
     SemanticChunkedDocument, SemanticChunkingError, SemanticChunkingService,
     semantic_chunking_prometheus_metrics,
+};
+pub use service_accounts::{
+    ServiceAccount, ServiceAccountError, ServiceAccountId, ServiceAccountLifecycle,
+    ServiceAccountStore,
 };
 pub use standalone::run_standalone_from_env;
 pub use token_chunking::{

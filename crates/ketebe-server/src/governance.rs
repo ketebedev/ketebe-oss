@@ -3,6 +3,8 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use serde::{Deserialize, Serialize};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AdmissionClass {
     Read,
@@ -31,7 +33,7 @@ impl AdmissionClass {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RateLimit {
     pub requests: u64,
     pub window: Duration,
@@ -46,13 +48,13 @@ impl RateLimit {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProjectQuota {
     pub max_collections: Option<u64>,
     pub max_records: Option<u64>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GovernancePolicy {
     pub read: Option<RateLimit>,
     pub write: Option<RateLimit>,
@@ -69,7 +71,7 @@ impl GovernancePolicy {
         }
     }
 
-    fn validate(&self) -> Result<(), GovernanceError> {
+    pub(crate) fn validate(&self) -> Result<(), GovernanceError> {
         for limit in [self.read, self.write, self.admin].into_iter().flatten() {
             if limit.requests == 0 || limit.window.is_zero() {
                 return Err(GovernanceError::InvalidPolicy);

@@ -9,6 +9,8 @@ use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 use tonic::{Request as GrpcRequest, Status};
 
+use crate::ProjectRole;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AuthenticationMode {
     Development,
@@ -19,13 +21,15 @@ pub enum AuthenticationMode {
 pub enum PrincipalKind {
     Development,
     Credential,
+    WorkloadCredential,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Principal {
     subject: String,
     kind: PrincipalKind,
-    project_id: Option<String>,
+    workload_project_id: Option<String>,
+    workload_project_role: Option<ProjectRole>,
 }
 
 impl Principal {
@@ -40,7 +44,8 @@ impl Principal {
         Ok(Self {
             subject,
             kind,
-            project_id: None,
+            workload_project_id: None,
+            workload_project_role: None,
         })
     }
 
@@ -55,20 +60,55 @@ impl Principal {
     }
 
     #[must_use]
-    pub fn project_id(&self) -> Option<&str> {
-        self.project_id.as_deref()
+    pub fn workload_project_id(&self) -> Option<&str> {
+        self.workload_project_id.as_deref()
     }
 
-    pub fn for_project(
-        subject: impl Into<String>,
+    #[must_use]
+    pub fn workload_project_role(&self) -> Option<ProjectRole> {
+        self.workload_project_role
+    }
+
+    pub(crate) fn with_request_project(
+        &self,
         project_id: impl Into<String>,
     ) -> Result<Self, AuthenticationError> {
-        let mut principal = Self::new(subject, PrincipalKind::Credential)?;
         let project_id = project_id.into();
         if project_id.trim().is_empty() {
             return Err(AuthenticationError::InvalidPrincipal);
         }
-        principal.project_id = Some(project_id);
+        if self.kind == PrincipalKind::WorkloadCredential {
+            if self.workload_project_id.as_deref() != Some(project_id.as_str()) {
+                return Err(AuthenticationError::InvalidPrincipal);
+            }
+            return Ok(self.clone());
+        }
+        let mut selected = self.clone();
+        selected.workload_project_id = Some(project_id);
+        selected.workload_project_role = None;
+        Ok(selected)
+    }
+
+    pub fn for_workload_project(
+        subject: impl Into<String>,
+        project_id: impl Into<String>,
+    ) -> Result<Self, AuthenticationError> {
+        let mut principal = Self::new(subject, PrincipalKind::WorkloadCredential)?;
+        let project_id = project_id.into();
+        if project_id.trim().is_empty() {
+            return Err(AuthenticationError::InvalidPrincipal);
+        }
+        principal.workload_project_id = Some(project_id);
+        Ok(principal)
+    }
+
+    pub fn for_workload_project_with_role(
+        subject: impl Into<String>,
+        project_id: impl Into<String>,
+        role: ProjectRole,
+    ) -> Result<Self, AuthenticationError> {
+        let mut principal = Self::for_workload_project(subject, project_id)?;
+        principal.workload_project_role = Some(role);
         Ok(principal)
     }
 
@@ -76,7 +116,8 @@ impl Principal {
         Self {
             subject: "development".to_string(),
             kind: PrincipalKind::Development,
-            project_id: Some("default".to_string()),
+            workload_project_id: Some("default".to_string()),
+            workload_project_role: None,
         }
     }
 }
@@ -370,9 +411,60 @@ fn record_authentication(
     );
     if let Some(principal) = principal {
         event = event.with_actor(principal.subject());
-        if let Some(project_id) = principal.project_id() {
+        if let Some(project_id) = principal.workload_project_id() {
             event = event.with_project(project_id);
         }
     }
     let _ = audit.record(&event);
+}
+
+#[cfg(test)]
+mod principal_identity_tests {
+    use super::*;
+
+    #[test]
+    fn human_principal_has_no_authentication_time_project_authority() {
+        let principal = Principal::new("user-42", PrincipalKind::Credential).unwrap();
+        assert_eq!(principal.subject(), "user-42");
+        assert_eq!(principal.workload_project_id(), None);
+    }
+
+    #[test]
+    fn workload_credential_binding_is_explicit_and_project_scoped() {
+        let principal = Principal::for_workload_project("service-42", "project-a").unwrap();
+        assert_eq!(principal.subject(), "service-42");
+        assert_eq!(principal.kind(), PrincipalKind::WorkloadCredential);
+        assert_eq!(principal.workload_project_id(), Some("project-a"));
+        assert_eq!(principal.workload_project_role(), None);
+    }
+
+    #[test]
+    fn request_project_context_is_explicit_and_cannot_rebind_workload_credentials() {
+        let human = Principal::new("human-a", PrincipalKind::Credential).unwrap();
+        let selected = human.with_request_project("project-a").unwrap();
+        assert_eq!(selected.kind(), PrincipalKind::Credential);
+        assert_eq!(selected.workload_project_id(), Some("project-a"));
+
+        let workload = Principal::for_workload_project("service-a", "project-a").unwrap();
+        assert_eq!(
+            workload
+                .with_request_project("project-a")
+                .unwrap()
+                .workload_project_id(),
+            Some("project-a")
+        );
+        assert!(workload.with_request_project("project-b").is_err());
+    }
+
+    #[test]
+    fn workload_credential_can_carry_explicit_project_role() {
+        let principal = Principal::for_workload_project_with_role(
+            "service-account:search",
+            "project-a",
+            ProjectRole::Editor,
+        )
+        .unwrap();
+        assert_eq!(principal.workload_project_id(), Some("project-a"));
+        assert_eq!(principal.workload_project_role(), Some(ProjectRole::Editor));
+    }
 }

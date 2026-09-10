@@ -20,12 +20,14 @@ use serde_json::Value;
 const REQUEST_ID_HEADER: &str = "x-request-id";
 const ORIGIN_HEADER: &str = "x-ketebe-origin";
 const ORIGIN_MCP: &str = "mcp";
+const PROJECT_HEADER: &str = "x-ketebe-project";
 
 static REQUEST_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 static METRICS: OnceLock<Metrics> = OnceLock::new();
 
 tokio::task_local! {
     static CURRENT_CORRELATION_ID: CorrelationId;
+    static CURRENT_PROJECT_ID: Option<String>;
 }
 
 #[derive(Debug, Default)]
@@ -131,10 +133,18 @@ fn current_correlation_id() -> Option<CorrelationId> {
     CURRENT_CORRELATION_ID.try_with(Clone::clone).ok()
 }
 
+pub(crate) fn current_project_id() -> Option<String> {
+    CURRENT_PROJECT_ID.try_with(Clone::clone).ok().flatten()
+}
+
 fn decorate_downstream_request(builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
     let builder = builder.header(ORIGIN_HEADER, ORIGIN_MCP);
-    match current_correlation_id() {
+    let builder = match current_correlation_id() {
         Some(correlation_id) => builder.header(REQUEST_ID_HEADER, correlation_id.as_str()),
+        None => builder,
+    };
+    match current_project_id() {
+        Some(project_id) => builder.header(PROJECT_HEADER, project_id),
         None => builder,
     }
 }
@@ -182,9 +192,18 @@ pub async fn observe_http_request(
         .headers_mut()
         .insert(ORIGIN_HEADER, HeaderValue::from_static(ORIGIN_MCP));
 
+    let project_id = request
+        .headers()
+        .get(PROJECT_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| !value.is_empty() && value.len() <= 128)
+        .map(str::to_string);
     let started = std::time::Instant::now();
-    let response = CURRENT_CORRELATION_ID
-        .scope(correlation_id.clone(), next.run(request))
+    let response = CURRENT_PROJECT_ID
+        .scope(
+            project_id,
+            CURRENT_CORRELATION_ID.scope(correlation_id.clone(), next.run(request)),
+        )
         .await;
     let elapsed = started.elapsed();
     observe_request(&metadata, response.status(), elapsed);
@@ -285,6 +304,26 @@ mod tests {
         assert!(valid_request_id("client-123:abc"));
         assert!(!valid_request_id("contains space"));
         assert!(!valid_request_id(&"x".repeat(129)));
+    }
+
+    #[tokio::test]
+    async fn downstream_requests_forward_explicit_project_context() {
+        let client = ObservedHttpClient::new();
+        let request = CURRENT_PROJECT_ID
+            .scope(Some("project-a".into()), async {
+                client
+                    .get("http://127.0.0.1/example")
+                    .build()
+                    .expect("request")
+            })
+            .await;
+        assert_eq!(
+            request
+                .headers()
+                .get(PROJECT_HEADER)
+                .and_then(|v| v.to_str().ok()),
+            Some("project-a")
+        );
     }
 
     #[tokio::test]

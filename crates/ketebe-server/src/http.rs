@@ -474,7 +474,7 @@ fn request_principal(
     match principal {
         Some(Extension(principal)) => Ok(principal),
         None if state.authorization().mode() == crate::AuthorizationMode::Development => {
-            crate::Principal::for_project("development", "default").map_err(|error| {
+            crate::Principal::for_workload_project("development", "default").map_err(|error| {
                 ApiError::internal(format!("failed to establish development scope: {error}"))
             })
         }

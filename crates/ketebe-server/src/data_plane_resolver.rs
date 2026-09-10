@@ -3,7 +3,7 @@ use ketebe_core::{CollectionName, DataPlaneScope, ProjectId};
 use std::fmt;
 
 /// Resolves user-visible collection names into stable data-plane scopes using only the
-/// authenticated principal's project identity. Callers cannot override the effective project.
+/// authenticated workload credential's project binding. Callers cannot override the effective project.
 #[derive(Clone, Debug)]
 pub struct DataPlaneResolver {
     catalog: CollectionNamespaceCatalog,
@@ -40,7 +40,7 @@ impl DataPlaneResolver {
 
 fn principal_project(principal: &Principal) -> Result<ProjectId, DataPlaneResolutionError> {
     let project_id = principal
-        .project_id()
+        .workload_project_id()
         .ok_or(DataPlaneResolutionError::MissingProjectScope)?;
     ProjectId::new(project_id)
         .map_err(|error| DataPlaneResolutionError::InvalidProjectScope(error.to_string()))
@@ -91,8 +91,8 @@ mod tests {
         let catalog = CollectionNamespaceCatalog::open(&root).unwrap();
         let resolver = DataPlaneResolver::new(catalog.clone());
         let name = CollectionName::new("documents").unwrap();
-        let principal_a = Principal::for_project("key-a", "project-a").unwrap();
-        let principal_b = Principal::for_project("key-b", "project-b").unwrap();
+        let principal_a = Principal::for_workload_project("key-a", "project-a").unwrap();
+        let principal_b = Principal::for_workload_project("key-b", "project-b").unwrap();
 
         let scope_a = resolver.create(&principal_a, &name).unwrap();
         let scope_b = resolver.create(&principal_b, &name).unwrap();

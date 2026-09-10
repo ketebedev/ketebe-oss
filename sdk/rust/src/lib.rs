@@ -11,6 +11,7 @@ pub struct ClientConfig {
     pub max_retries: usize,
     pub retry_backoff: Duration,
     bearer_token: Option<String>,
+    project_id: Option<String>,
 }
 
 impl fmt::Debug for ClientConfig {
@@ -24,6 +25,7 @@ impl fmt::Debug for ClientConfig {
                 "bearer_token",
                 &self.bearer_token.as_ref().map(|_| "[REDACTED]"),
             )
+            .field("project_id", &self.project_id)
             .finish()
     }
 }
@@ -36,12 +38,19 @@ impl ClientConfig {
             max_retries: 2,
             retry_backoff: Duration::from_millis(50),
             bearer_token: None,
+            project_id: None,
         }
     }
 
     #[must_use]
     pub fn with_bearer_token(mut self, token: impl Into<String>) -> Self {
         self.bearer_token = Some(token.into());
+        self
+    }
+
+    #[must_use]
+    pub fn with_project(mut self, project_id: impl Into<String>) -> Self {
+        self.project_id = Some(project_id.into());
         self
     }
 }
@@ -65,6 +74,96 @@ impl Client {
         self.send_json::<(), Value>(Method::GET, "/healthz", None, true)
             .await
             .map(|_| ())
+    }
+
+    pub async fn list_organizations(&self) -> Result<Vec<Organization>, Error> {
+        self.send_json::<(), Vec<Organization>>(Method::GET, "/v0/organizations", None, true)
+            .await
+    }
+
+    pub async fn create_organization(
+        &self,
+        request: &CreateOrganization,
+    ) -> Result<Organization, Error> {
+        self.send_json(Method::POST, "/v0/organizations", Some(request), false)
+            .await
+    }
+
+    pub async fn get_organization(&self, id: &str) -> Result<Organization, Error> {
+        self.send_json::<(), Organization>(
+            Method::GET,
+            &format!("/v0/organizations/{id}"),
+            None,
+            true,
+        )
+        .await
+    }
+
+    pub async fn update_organization(
+        &self,
+        id: &str,
+        request: &UpdateOrganization,
+    ) -> Result<Organization, Error> {
+        self.send_json(
+            Method::PATCH,
+            &format!("/v0/organizations/{id}"),
+            Some(request),
+            false,
+        )
+        .await
+    }
+
+    pub async fn delete_organization(&self, id: &str) -> Result<(), Error> {
+        self.send_empty(Method::DELETE, &format!("/v0/organizations/{id}"), false)
+            .await
+    }
+
+    pub async fn list_projects(&self, organization_id: &str) -> Result<Vec<Project>, Error> {
+        self.send_json::<(), Vec<Project>>(
+            Method::GET,
+            &format!("/v0/organizations/{organization_id}/projects"),
+            None,
+            true,
+        )
+        .await
+    }
+
+    pub async fn create_project(
+        &self,
+        organization_id: &str,
+        request: &CreateProject,
+    ) -> Result<Project, Error> {
+        self.send_json(
+            Method::POST,
+            &format!("/v0/organizations/{organization_id}/projects"),
+            Some(request),
+            false,
+        )
+        .await
+    }
+
+    pub async fn get_project(&self, id: &str) -> Result<Project, Error> {
+        self.send_json::<(), Project>(Method::GET, &format!("/v0/projects/{id}"), None, true)
+            .await
+    }
+
+    pub async fn update_project(
+        &self,
+        id: &str,
+        request: &UpdateProject,
+    ) -> Result<Project, Error> {
+        self.send_json(
+            Method::PATCH,
+            &format!("/v0/projects/{id}"),
+            Some(request),
+            false,
+        )
+        .await
+    }
+
+    pub async fn delete_project(&self, id: &str) -> Result<(), Error> {
+        self.send_empty(Method::DELETE, &format!("/v0/projects/{id}"), false)
+            .await
     }
 
     pub async fn list_collections(&self) -> Result<Vec<Collection>, Error> {
@@ -296,6 +395,9 @@ impl Client {
             if let Some(token) = self.config.bearer_token.as_deref() {
                 request = request.bearer_auth(token);
             }
+            if let Some(project_id) = self.config.project_id.as_deref() {
+                request = request.header("x-ketebe-project", project_id);
+            }
             if let Some(body) = body {
                 request = request.json(body);
             }
@@ -365,6 +467,63 @@ impl fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ResourceLifecycle {
+    Active,
+    Suspended,
+    Deleting,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Organization {
+    pub id: String,
+    pub name: String,
+    pub slug: String,
+    pub lifecycle: ResourceLifecycle,
+    pub created_at_unix: u64,
+    pub updated_at_unix: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Project {
+    pub id: String,
+    pub organization_id: String,
+    pub name: String,
+    pub slug: String,
+    pub lifecycle: ResourceLifecycle,
+    pub created_at_unix: u64,
+    pub updated_at_unix: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CreateOrganization {
+    pub id: String,
+    pub name: String,
+    pub slug: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UpdateOrganization {
+    pub name: String,
+    pub slug: String,
+    pub lifecycle: ResourceLifecycle,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CreateProject {
+    pub id: String,
+    pub name: String,
+    pub slug: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UpdateProject {
+    pub name: String,
+    pub slug: String,
+    pub lifecycle: ResourceLifecycle,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "type", content = "value", rename_all = "lowercase")]
@@ -524,6 +683,16 @@ mod tests {
     }
 
     #[test]
+    fn client_config_keeps_explicit_project_context_non_secret() {
+        let config = ClientConfig::new("http://127.0.0.1:7610")
+            .with_bearer_token("super-secret-token")
+            .with_project("project-a");
+        let debug = format!("{config:?}");
+        assert!(debug.contains("project-a"));
+        assert!(!debug.contains("super-secret-token"));
+    }
+
+    #[test]
     fn typed_record_ids_remain_distinct_on_the_wire() {
         let string = serde_json::to_value(RecordId::String("42".into())).unwrap();
         let numeric = serde_json::to_value(RecordId::U64(42)).unwrap();
@@ -568,6 +737,16 @@ mod tests {
                 "post",
                 "/v0/collections/{collection_id}/embedding-migration/activate",
             ),
+            ("get", "/v0/organizations"),
+            ("post", "/v0/organizations"),
+            ("get", "/v0/organizations/{organization_id}"),
+            ("patch", "/v0/organizations/{organization_id}"),
+            ("delete", "/v0/organizations/{organization_id}"),
+            ("get", "/v0/organizations/{organization_id}/projects"),
+            ("post", "/v0/organizations/{organization_id}/projects"),
+            ("get", "/v0/projects/{project_id}"),
+            ("patch", "/v0/projects/{project_id}"),
+            ("delete", "/v0/projects/{project_id}"),
         ] {
             assert!(
                 spec["paths"][path][method].is_object(),

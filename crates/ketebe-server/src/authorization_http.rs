@@ -6,14 +6,19 @@ use axum::response::{IntoResponse, Response};
 
 use crate::{
     AdmissionClass, AppState, AuditCategory, AuditEvent, AuditOrigin, AuditResult,
-    AuthorizationAction, AuthorizationResource, JobId, JobService, Principal,
+    AuthorizationAction, AuthorizationResource, JobId, JobService, Principal, PrincipalKind,
 };
 
 pub(crate) async fn http_authorize(
     State(state): State<AppState>,
-    request: Request,
+    mut request: Request,
     next: Next,
 ) -> Response {
+    if !is_control_plane_path(request.uri().path())
+        && let Err(error) = apply_explicit_project_context(&state, &mut request)
+    {
+        return explicit_project_context_response(error);
+    }
     if !is_read_only_collection_post(request.method(), request.uri().path()) {
         return authorize_default(State(state), request, next).await;
     }
@@ -87,17 +92,71 @@ pub(crate) async fn http_authorize(
     next.run(request).await
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ExplicitProjectContextError {
+    Forbidden,
+    Undiscoverable,
+}
+
+fn apply_explicit_project_context(
+    state: &AppState,
+    request: &mut Request,
+) -> Result<(), ExplicitProjectContextError> {
+    let Some(raw_project) = request
+        .headers()
+        .get("x-ketebe-project")
+        .and_then(|value| value.to_str().ok())
+    else {
+        return Ok(());
+    };
+    let Some(principal) = request.extensions().get::<Principal>().cloned() else {
+        return Err(ExplicitProjectContextError::Forbidden);
+    };
+    if principal.kind() == PrincipalKind::WorkloadCredential {
+        if principal.workload_project_id() == Some(raw_project) {
+            return Ok(());
+        }
+        return Err(ExplicitProjectContextError::Forbidden);
+    }
+    if state
+        .authorization()
+        .authorize_project(
+            &principal,
+            AuthorizationAction::CollectionDiscover,
+            raw_project,
+        )
+        .is_err()
+    {
+        return Err(ExplicitProjectContextError::Undiscoverable);
+    }
+    let selected = principal
+        .with_request_project(raw_project.to_string())
+        .map_err(|_| ExplicitProjectContextError::Forbidden)?;
+    request.extensions_mut().insert(selected);
+    Ok(())
+}
+
+fn explicit_project_context_response(error: ExplicitProjectContextError) -> Response {
+    match error {
+        ExplicitProjectContextError::Forbidden => forbidden_response(),
+        ExplicitProjectContextError::Undiscoverable => undiscoverable_project_response(),
+    }
+}
+
 async fn authorize_default(
     State(state): State<AppState>,
     request: Request,
     next: Next,
 ) -> Response {
     let path = request.uri().path();
+    if is_control_plane_path(path) {
+        return next.run(request).await;
+    }
     if is_profile_discovery_path(path) {
         let Some(principal) = request.extensions().get::<Principal>() else {
             return forbidden_response();
         };
-        let Some(project) = principal.project_id() else {
+        let Some(project) = principal.workload_project_id() else {
             return forbidden_response();
         };
         if state
@@ -117,7 +176,9 @@ async fn authorize_default(
         } else {
             AuthorizationAction::CollectionWrite
         };
-        let project = crate::job_access::principal_project(principal);
+        let Some(project) = crate::job_access::principal_project(principal) else {
+            return forbidden_response();
+        };
         if state
             .authorization()
             .authorize_project(principal, action, &project)
@@ -162,6 +223,11 @@ fn collection_id_from_path(path: &str) -> Option<&str> {
     None
 }
 
+fn is_control_plane_path(path: &str) -> bool {
+    let mut parts = path.split('/').filter(|part| !part.is_empty());
+    parts.next() == Some("v0") && matches!(parts.next(), Some("organizations" | "projects"))
+}
+
 fn is_profile_discovery_path(path: &str) -> bool {
     let mut parts = path.split('/').filter(|part| !part.is_empty());
     if parts.next() != Some("v0") {
@@ -197,7 +263,7 @@ fn audit_decision(
 ) {
     let mut event = AuditEvent::new(category, action, result, AuditOrigin::Http)
         .with_actor(principal.subject());
-    if let Some(project_id) = principal.project_id() {
+    if let Some(project_id) = principal.workload_project_id() {
         event = event.with_project(project_id);
     }
     if let Some(resource_id) = resource_id {
@@ -244,6 +310,14 @@ fn forbidden_response() -> Response {
     (
         StatusCode::FORBIDDEN,
         Json(serde_json::json!({"error":{"code":"forbidden","message":"authorization denied"}})),
+    )
+        .into_response()
+}
+
+fn undiscoverable_project_response() -> Response {
+    (
+        StatusCode::NOT_FOUND,
+        Json(serde_json::json!({"error":{"code":"project_not_found","message":"project was not found"}})),
     )
         .into_response()
 }

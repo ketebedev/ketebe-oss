@@ -2,8 +2,9 @@ use crate::{
     ApiKeyStore, AppState, AuthenticationService, AuthorizationService,
     DeterministicEmbeddingProvider, EmbeddingMigrationService, EmbeddingProviderRegistry,
     JobService, KafkaIngestionConfig, KafkaSecurityConfig, OpenAiCompatibleEmbeddingConfig,
-    OpenAiCompatibleEmbeddingProvider, SecretRef, app_with_authentication, init_observability,
-    run_kafka_ingestion, serve_grpc_transport_until_shutdown, transport_tls_from_env,
+    OpenAiCompatibleEmbeddingProvider, SecretRef, app_with_authentication,
+    bootstrap_default_control_plane, init_observability, run_kafka_ingestion,
+    serve_grpc_transport_until_shutdown, transport_tls_from_env,
 };
 use ketebe_core::CollectionId;
 use std::net::SocketAddr;
@@ -32,6 +33,13 @@ pub async fn run_standalone_from_env() {
         .unwrap_or_else(|error| panic!("invalid KETEBE_GRPC_ADDR: {error}"));
     let data_dir =
         PathBuf::from(std::env::var("KETEBE_DATA_DIR").unwrap_or_else(|_| "./data".to_string()));
+    let bootstrap = bootstrap_default_control_plane(&data_dir)
+        .unwrap_or_else(|error| panic!("failed to bootstrap control-plane state: {error}"));
+    tracing::info!(
+        control_plane.default_resources_created = bootstrap.default_resources_created,
+        control_plane.validated_project_references = bootstrap.validated_project_references,
+        "control-plane bootstrap migration completed"
+    );
     let authorization = authorization_from_env(&data_dir);
     let state = AppState::recover(&data_dir)
         .unwrap_or_else(|error| panic!("failed to recover {}: {error}", data_dir.display()))

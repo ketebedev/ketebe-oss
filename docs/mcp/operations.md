@@ -14,7 +14,9 @@ Ketebe MCP supports local stdio and remote Streamable HTTP deployments. Remote d
 
 ## Authorization
 
-MCP forwards requests through Ketebe's normal API and authorization model rather than implementing an independent RBAC system. Project and tenant scope must therefore remain intact end to end.
+MCP forwards requests through Ketebe's normal API and authorization model rather than implementing an independent RBAC system. Organization and Project authorization must therefore remain intact end to end.
+
+`Tenant` is not a public Ketebe resource. For human multi-Project workflows, MCP clients select a Project with the same `X-Ketebe-Project` request header used by the public API. Ketebe validates that selection; MCP does not manufacture or persist Project authority.
 
 ## Tool policy
 

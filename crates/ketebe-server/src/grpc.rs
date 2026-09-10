@@ -1,6 +1,7 @@
 use ketebe_core::{
     ChunkingPolicy, CollectionIngestionConfig, DistanceMetric, FieldPath, LexicalAnalyzerConfig,
-    Metadata, MetadataValue, Predicate, RecordId,
+    Metadata, MetadataValue, OrganizationId, Predicate, ProjectId, RecordId,
+    ResourceLifecycleState,
 };
 use ketebe_storage::{
     DEFAULT_RRF_K, ExecutionPreference, ExecutionStrategy, FilteredSearchError, HnswError,
@@ -20,6 +21,7 @@ pub mod proto {
     tonic::include_proto!("ketebe.v0");
 }
 use proto::collections_server::{Collections, CollectionsServer};
+use proto::control_plane_server::{ControlPlane, ControlPlaneServer};
 use proto::query_server::{Query, QueryServer};
 use proto::records_server::{Records, RecordsServer};
 
@@ -119,6 +121,7 @@ where
         .layer(trace_layer)
         .layer(auth_layer)
         .add_service(CollectionsServer::new(api.clone()))
+        .add_service(ControlPlaneServer::new(api.clone()))
         .add_service(RecordsServer::new(api.clone()))
         .add_service(QueryServer::new(api))
         .add_service(query_v1)
@@ -1083,5 +1086,446 @@ fn map_filtered_error(error: FilteredSearchError) -> Status {
         FilteredSearchError::Exact(e) => map_search_error(e),
         FilteredSearchError::Hnsw(e) => map_hnsw_error(e),
         FilteredSearchError::Predicate(e) => Status::invalid_argument(e.to_string()),
+    }
+}
+
+#[tonic::async_trait]
+impl ControlPlane for GrpcApi {
+    async fn create_organization(
+        &self,
+        request: Request<proto::CreateOrganizationRequest>,
+    ) -> Result<Response<proto::Organization>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let input = request.into_inner();
+        let organization = api
+            .create_organization(
+                &principal,
+                crate::CreateOrganizationInput {
+                    id: input.id,
+                    name: input.name,
+                    slug: input.slug,
+                },
+            )
+            .map_err(map_control_plane_api_error)?;
+        Ok(Response::new(organization_to_proto(organization)))
+    }
+
+    async fn list_organizations(
+        &self,
+        request: Request<proto::ListOrganizationsRequest>,
+    ) -> Result<Response<proto::ListOrganizationsResponse>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let organizations = api
+            .list_organizations(&principal)
+            .map_err(map_control_plane_api_error)?
+            .into_iter()
+            .map(organization_to_proto)
+            .collect();
+        Ok(Response::new(proto::ListOrganizationsResponse {
+            organizations,
+        }))
+    }
+
+    async fn get_organization(
+        &self,
+        request: Request<proto::GetOrganizationRequest>,
+    ) -> Result<Response<proto::Organization>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let id = OrganizationId::new(request.get_ref().id.clone())
+            .map_err(|error| Status::invalid_argument(error.to_string()))?;
+        let organization = api
+            .get_organization(&principal, &id)
+            .map_err(map_control_plane_api_error)?;
+        Ok(Response::new(organization_to_proto(organization)))
+    }
+
+    async fn update_organization(
+        &self,
+        request: Request<proto::UpdateOrganizationRequest>,
+    ) -> Result<Response<proto::Organization>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let input = request.into_inner();
+        let id = OrganizationId::new(input.id)
+            .map_err(|error| Status::invalid_argument(error.to_string()))?;
+        let organization = api
+            .update_organization(
+                &principal,
+                &id,
+                crate::UpdateOrganizationInput {
+                    name: input.name,
+                    slug: input.slug,
+                    lifecycle: lifecycle_from_proto(input.lifecycle)?,
+                },
+            )
+            .map_err(map_control_plane_api_error)?;
+        Ok(Response::new(organization_to_proto(organization)))
+    }
+
+    async fn delete_organization(
+        &self,
+        request: Request<proto::DeleteOrganizationRequest>,
+    ) -> Result<Response<proto::DeleteOrganizationResponse>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let id = OrganizationId::new(request.get_ref().id.clone())
+            .map_err(|error| Status::invalid_argument(error.to_string()))?;
+        api.delete_organization(&principal, &id)
+            .map_err(map_control_plane_api_error)?;
+        Ok(Response::new(proto::DeleteOrganizationResponse {}))
+    }
+
+    async fn create_project(
+        &self,
+        request: Request<proto::CreateProjectRequest>,
+    ) -> Result<Response<proto::Project>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let input = request.into_inner();
+        let organization_id = OrganizationId::new(input.organization_id)
+            .map_err(|error| Status::invalid_argument(error.to_string()))?;
+        let project = api
+            .create_project(
+                &principal,
+                &organization_id,
+                crate::CreateProjectInput {
+                    id: input.id,
+                    name: input.name,
+                    slug: input.slug,
+                },
+            )
+            .map_err(map_control_plane_api_error)?;
+        Ok(Response::new(project_to_proto(project)))
+    }
+
+    async fn list_projects(
+        &self,
+        request: Request<proto::ListProjectsRequest>,
+    ) -> Result<Response<proto::ListProjectsResponse>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let organization_id = OrganizationId::new(request.get_ref().organization_id.clone())
+            .map_err(|error| Status::invalid_argument(error.to_string()))?;
+        let projects = api
+            .list_projects(&principal, &organization_id)
+            .map_err(map_control_plane_api_error)?
+            .into_iter()
+            .map(project_to_proto)
+            .collect();
+        Ok(Response::new(proto::ListProjectsResponse { projects }))
+    }
+
+    async fn get_project(
+        &self,
+        request: Request<proto::GetProjectRequest>,
+    ) -> Result<Response<proto::Project>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let id = ProjectId::new(request.get_ref().id.clone())
+            .map_err(|error| Status::invalid_argument(error.to_string()))?;
+        let project = api
+            .get_project(&principal, &id)
+            .map_err(map_control_plane_api_error)?;
+        Ok(Response::new(project_to_proto(project)))
+    }
+
+    async fn update_project(
+        &self,
+        request: Request<proto::UpdateProjectRequest>,
+    ) -> Result<Response<proto::Project>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let input = request.into_inner();
+        let id = ProjectId::new(input.id)
+            .map_err(|error| Status::invalid_argument(error.to_string()))?;
+        let project = api
+            .update_project(
+                &principal,
+                &id,
+                crate::UpdateProjectInput {
+                    name: input.name,
+                    slug: input.slug,
+                    lifecycle: lifecycle_from_proto(input.lifecycle)?,
+                },
+            )
+            .map_err(map_control_plane_api_error)?;
+        Ok(Response::new(project_to_proto(project)))
+    }
+
+    async fn delete_project(
+        &self,
+        request: Request<proto::DeleteProjectRequest>,
+    ) -> Result<Response<proto::DeleteProjectResponse>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let id = ProjectId::new(request.get_ref().id.clone())
+            .map_err(|error| Status::invalid_argument(error.to_string()))?;
+        api.delete_project(&principal, &id)
+            .map_err(map_control_plane_api_error)?;
+        Ok(Response::new(proto::DeleteProjectResponse {}))
+    }
+
+    async fn list_organization_memberships(
+        &self,
+        request: Request<proto::ListOrganizationMembershipsRequest>,
+    ) -> Result<Response<proto::ListOrganizationMembershipsResponse>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let id = OrganizationId::new(request.get_ref().organization_id.clone())
+            .map_err(|error| Status::invalid_argument(error.to_string()))?;
+        let memberships = api
+            .list_organization_memberships(&principal, &id)
+            .map_err(map_control_plane_api_error)?
+            .into_iter()
+            .map(organization_membership_to_proto)
+            .collect();
+        Ok(Response::new(proto::ListOrganizationMembershipsResponse {
+            memberships,
+        }))
+    }
+
+    async fn upsert_organization_membership(
+        &self,
+        request: Request<proto::UpsertOrganizationMembershipRequest>,
+    ) -> Result<Response<proto::OrganizationMembership>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let input = request.into_inner();
+        let id = OrganizationId::new(input.organization_id)
+            .map_err(|error| Status::invalid_argument(error.to_string()))?;
+        let membership = api
+            .upsert_organization_membership(
+                &principal,
+                &id,
+                &input.subject,
+                organization_role_from_proto(input.role)?,
+            )
+            .map_err(map_control_plane_api_error)?;
+        Ok(Response::new(organization_membership_to_proto(membership)))
+    }
+
+    async fn delete_organization_membership(
+        &self,
+        request: Request<proto::DeleteOrganizationMembershipRequest>,
+    ) -> Result<Response<proto::DeleteOrganizationMembershipResponse>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let input = request.into_inner();
+        let id = OrganizationId::new(input.organization_id)
+            .map_err(|error| Status::invalid_argument(error.to_string()))?;
+        api.remove_organization_membership(&principal, &id, &input.subject)
+            .map_err(map_control_plane_api_error)?;
+        Ok(Response::new(
+            proto::DeleteOrganizationMembershipResponse {},
+        ))
+    }
+
+    async fn list_project_memberships(
+        &self,
+        request: Request<proto::ListProjectMembershipsRequest>,
+    ) -> Result<Response<proto::ListProjectMembershipsResponse>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let id = ProjectId::new(request.get_ref().project_id.clone())
+            .map_err(|error| Status::invalid_argument(error.to_string()))?;
+        let memberships = api
+            .list_project_memberships(&principal, &id)
+            .map_err(map_control_plane_api_error)?
+            .into_iter()
+            .map(project_membership_to_proto)
+            .collect();
+        Ok(Response::new(proto::ListProjectMembershipsResponse {
+            memberships,
+        }))
+    }
+
+    async fn upsert_project_membership(
+        &self,
+        request: Request<proto::UpsertProjectMembershipRequest>,
+    ) -> Result<Response<proto::ProjectMembership>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let input = request.into_inner();
+        let id = ProjectId::new(input.project_id)
+            .map_err(|error| Status::invalid_argument(error.to_string()))?;
+        let membership = api
+            .upsert_project_membership(
+                &principal,
+                &id,
+                &input.subject,
+                project_role_from_proto(input.role)?,
+            )
+            .map_err(map_control_plane_api_error)?;
+        Ok(Response::new(project_membership_to_proto(membership)))
+    }
+
+    async fn delete_project_membership(
+        &self,
+        request: Request<proto::DeleteProjectMembershipRequest>,
+    ) -> Result<Response<proto::DeleteProjectMembershipResponse>, Status> {
+        let principal = crate::authorization::grpc_principal(&request)?;
+        let api = control_plane_service(&self.state, &request);
+        let input = request.into_inner();
+        let id = ProjectId::new(input.project_id)
+            .map_err(|error| Status::invalid_argument(error.to_string()))?;
+        api.remove_project_membership(&principal, &id, &input.subject)
+            .map_err(map_control_plane_api_error)?;
+        Ok(Response::new(proto::DeleteProjectMembershipResponse {}))
+    }
+}
+
+fn control_plane_service<T>(
+    state: &AppState,
+    request: &Request<T>,
+) -> crate::ControlPlaneApiService {
+    let mut audit_context = crate::AuditContext::new(crate::AuditOrigin::Grpc);
+    if let Some(correlation_id) = request
+        .metadata()
+        .get("x-request-id")
+        .and_then(|value| value.to_str().ok())
+    {
+        audit_context = audit_context.with_correlation_id(correlation_id);
+    }
+    crate::ControlPlaneApiService::new(state.data_dir.as_path(), state.audit())
+        .with_audit_context(audit_context)
+}
+
+fn organization_to_proto(value: ketebe_core::Organization) -> proto::Organization {
+    proto::Organization {
+        id: value.id().as_str().to_string(),
+        name: value.name().to_string(),
+        slug: value.slug().to_string(),
+        lifecycle: lifecycle_to_proto(value.lifecycle()),
+        created_at_unix: value.timestamps().created_at_unix(),
+        updated_at_unix: value.timestamps().updated_at_unix(),
+    }
+}
+
+fn project_to_proto(value: ketebe_core::Project) -> proto::Project {
+    proto::Project {
+        id: value.id().as_str().to_string(),
+        organization_id: value.organization_id().as_str().to_string(),
+        name: value.name().to_string(),
+        slug: value.slug().to_string(),
+        lifecycle: lifecycle_to_proto(value.lifecycle()),
+        created_at_unix: value.timestamps().created_at_unix(),
+        updated_at_unix: value.timestamps().updated_at_unix(),
+    }
+}
+
+fn organization_membership_to_proto(
+    value: crate::OrganizationMembership,
+) -> proto::OrganizationMembership {
+    proto::OrganizationMembership {
+        organization_id: value.organization_id().to_string(),
+        subject: value.subject().to_string(),
+        role: organization_role_to_proto(value.role()),
+    }
+}
+
+fn project_membership_to_proto(value: crate::ProjectMembership) -> proto::ProjectMembership {
+    proto::ProjectMembership {
+        project_id: value.project_id().to_string(),
+        subject: value.subject().to_string(),
+        role: project_role_to_proto(value.role()),
+    }
+}
+
+fn lifecycle_from_proto(value: i32) -> Result<ResourceLifecycleState, Status> {
+    match proto::ResourceLifecycle::try_from(value)
+        .map_err(|_| Status::invalid_argument("invalid lifecycle"))?
+    {
+        proto::ResourceLifecycle::Active => Ok(ResourceLifecycleState::Active),
+        proto::ResourceLifecycle::Suspended => Ok(ResourceLifecycleState::Suspended),
+        proto::ResourceLifecycle::Deleting => Ok(ResourceLifecycleState::Deleting),
+        proto::ResourceLifecycle::Unspecified => {
+            Err(Status::invalid_argument("lifecycle must be specified"))
+        }
+    }
+}
+
+fn lifecycle_to_proto(value: ResourceLifecycleState) -> i32 {
+    match value {
+        ResourceLifecycleState::Active => proto::ResourceLifecycle::Active as i32,
+        ResourceLifecycleState::Suspended => proto::ResourceLifecycle::Suspended as i32,
+        ResourceLifecycleState::Deleting => proto::ResourceLifecycle::Deleting as i32,
+    }
+}
+
+fn organization_role_from_proto(value: i32) -> Result<crate::OrganizationRole, Status> {
+    match proto::OrganizationRole::try_from(value)
+        .map_err(|_| Status::invalid_argument("invalid organization role"))?
+    {
+        proto::OrganizationRole::Owner => Ok(crate::OrganizationRole::Owner),
+        proto::OrganizationRole::Admin => Ok(crate::OrganizationRole::Admin),
+        proto::OrganizationRole::Member => Ok(crate::OrganizationRole::Member),
+        proto::OrganizationRole::BillingAdmin => Ok(crate::OrganizationRole::BillingAdmin),
+        proto::OrganizationRole::Unspecified => Err(Status::invalid_argument(
+            "organization role must be specified",
+        )),
+    }
+}
+
+fn organization_role_to_proto(value: crate::OrganizationRole) -> i32 {
+    match value {
+        crate::OrganizationRole::Owner => proto::OrganizationRole::Owner as i32,
+        crate::OrganizationRole::Admin => proto::OrganizationRole::Admin as i32,
+        crate::OrganizationRole::Member => proto::OrganizationRole::Member as i32,
+        crate::OrganizationRole::BillingAdmin => proto::OrganizationRole::BillingAdmin as i32,
+    }
+}
+
+fn project_role_from_proto(value: i32) -> Result<crate::ProjectRole, Status> {
+    match proto::ProjectRole::try_from(value)
+        .map_err(|_| Status::invalid_argument("invalid project role"))?
+    {
+        proto::ProjectRole::Reader => Ok(crate::ProjectRole::Reader),
+        proto::ProjectRole::Editor => Ok(crate::ProjectRole::Editor),
+        proto::ProjectRole::Owner => Ok(crate::ProjectRole::Owner),
+        proto::ProjectRole::Unspecified => {
+            Err(Status::invalid_argument("project role must be specified"))
+        }
+    }
+}
+
+fn project_role_to_proto(value: crate::ProjectRole) -> i32 {
+    match value {
+        crate::ProjectRole::Reader => proto::ProjectRole::Reader as i32,
+        crate::ProjectRole::Editor => proto::ProjectRole::Editor as i32,
+        crate::ProjectRole::Owner => proto::ProjectRole::Owner as i32,
+    }
+}
+
+fn map_control_plane_api_error(error: crate::ControlPlaneApiError) -> Status {
+    match error {
+        crate::ControlPlaneApiError::InvalidInput(message) => Status::invalid_argument(message),
+        crate::ControlPlaneApiError::Undiscoverable => Status::not_found("resource not found"),
+        crate::ControlPlaneApiError::Forbidden => Status::permission_denied("authorization denied"),
+        crate::ControlPlaneApiError::Conflict(message) => Status::already_exists(message),
+        crate::ControlPlaneApiError::ResourceNotDeleting => {
+            Status::failed_precondition("resource must be deleting before deletion")
+        }
+        crate::ControlPlaneApiError::InvalidLifecycleTransition => {
+            Status::failed_precondition("invalid lifecycle transition")
+        }
+        crate::ControlPlaneApiError::ProjectHasCollections => {
+            Status::failed_precondition("project still owns collections")
+        }
+        crate::ControlPlaneApiError::OrganizationMembership(
+            crate::OrganizationMembershipError::Undiscoverable,
+        )
+        | crate::ControlPlaneApiError::ProjectMembership(
+            crate::ProjectMembershipError::Undiscoverable,
+        ) => Status::not_found("resource not found"),
+        crate::ControlPlaneApiError::OrganizationMembership(
+            crate::OrganizationMembershipError::LastOwner,
+        )
+        | crate::ControlPlaneApiError::ProjectMembership(
+            crate::ProjectMembershipError::LastOwner,
+        ) => Status::failed_precondition("resource must retain at least one owner"),
+        other => Status::internal(other.to_string()),
     }
 }
