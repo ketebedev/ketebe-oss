@@ -14,6 +14,8 @@ from .models import (
     QueryRequest,
     QueryResponse,
     RecordId,
+    Organization,
+    Project,
     RecordUpsert,
 )
 
@@ -27,10 +29,12 @@ class Client:
         max_retries: int = 2,
         retry_backoff: float = 0.05,
         transport: httpx.BaseTransport | None = None,
+        project_id: str | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.max_retries = max_retries
         self.retry_backoff = retry_backoff
+        self.project_id = project_id
         self._http = httpx.Client(timeout=timeout, transport=transport)
 
     def close(self) -> None:
@@ -41,6 +45,36 @@ class Client:
 
     def __exit__(self, *_: object) -> None:
         self.close()
+
+    def list_organizations(self) -> list[Organization]:
+        return [Organization.from_wire(item) for item in self._request("GET", "/v0/organizations", idempotent=True)]
+
+    def create_organization(self, request: Json) -> Organization:
+        return Organization.from_wire(self._request("POST", "/v0/organizations", json=request))
+
+    def get_organization(self, organization_id: str) -> Organization:
+        return Organization.from_wire(self._request("GET", f"/v0/organizations/{organization_id}", idempotent=True))
+
+    def update_organization(self, organization_id: str, request: Json) -> Organization:
+        return Organization.from_wire(self._request("PATCH", f"/v0/organizations/{organization_id}", json=request))
+
+    def delete_organization(self, organization_id: str) -> None:
+        self._request("DELETE", f"/v0/organizations/{organization_id}", empty_ok=True)
+
+    def list_projects(self, organization_id: str) -> list[Project]:
+        return [Project.from_wire(item) for item in self._request("GET", f"/v0/organizations/{organization_id}/projects", idempotent=True)]
+
+    def create_project(self, organization_id: str, request: Json) -> Project:
+        return Project.from_wire(self._request("POST", f"/v0/organizations/{organization_id}/projects", json=request))
+
+    def get_project(self, project_id: str) -> Project:
+        return Project.from_wire(self._request("GET", f"/v0/projects/{project_id}", idempotent=True))
+
+    def update_project(self, project_id: str, request: Json) -> Project:
+        return Project.from_wire(self._request("PATCH", f"/v0/projects/{project_id}", json=request))
+
+    def delete_project(self, project_id: str) -> None:
+        self._request("DELETE", f"/v0/projects/{project_id}", empty_ok=True)
 
     def list_collections(self) -> list[Json]:
         return list(self._request("GET", "/v0/collections", idempotent=True)["collections"])
@@ -139,7 +173,8 @@ class Client:
         attempts = self.max_retries + 1 if idempotent else 1
         for attempt in range(attempts):
             try:
-                response = self._http.request(method, f"{self.base_url}{path}", json=json)
+                headers = {"x-ketebe-project": self.project_id} if self.project_id is not None else None
+                response = self._http.request(method, f"{self.base_url}{path}", json=json, headers=headers)
             except (httpx.ConnectError, httpx.TimeoutException) as error:
                 if idempotent and attempt + 1 < attempts:
                     time.sleep(self.retry_backoff)

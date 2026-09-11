@@ -18,9 +18,9 @@ Security vulnerabilities must follow [SECURITY.md](SECURITY.md), not the normal 
 
 The repository includes `rust-toolchain.toml`.
 
-## Local Rust quality gates
+## Mandatory pre-push Rust quality gate
 
-For Rust or cross-product changes, run:
+For every Rust or cross-product code change, the following commands **MUST** be run and **MUST all pass before the commit is pushed or a pull request is opened or updated**:
 
 ```bash
 cargo fmt --all -- --check
@@ -29,7 +29,20 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-features
 ```
 
-Documentation-only changes do not require rebuilding the full Rust/SDK matrix locally.
+The commands **MUST be executed in this order**. If any command fails, the change **MUST NOT** be pushed as ready for CI until the failure is corrected and the gate passes from the beginning.
+
+This rule applies equally to:
+
+- human contributors,
+- scripts and release automation,
+- coding agents and AI-generated changes,
+- automated repository maintenance that modifies Rust or cross-product code.
+
+GitHub Actions is the final verification layer; it **MUST NOT be used as the first formatter, compiler, linter, or unit-test feedback loop** for changes that can be validated locally.
+
+When a change modifies code after the gate has passed, the affected gate **MUST be rerun before the next push**. When in doubt, rerun the full sequence.
+
+Documentation-only changes that do not modify code, generated contracts, build configuration, dependencies, or executable examples do not require the full Rust workspace gate.
 
 ## Public API changes
 

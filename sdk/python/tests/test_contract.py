@@ -45,6 +45,16 @@ def test_openapi_contains_python_sdk_surface() -> None:
         ("post", "/v0/collections/{collection_id}/embedding-migration/catch-up"),
         ("post", "/v0/collections/{collection_id}/embedding-migration/catch-up-job"),
         ("post", "/v0/collections/{collection_id}/embedding-migration/activate"),
+        ("get", "/v0/organizations"),
+        ("post", "/v0/organizations"),
+        ("get", "/v0/organizations/{organization_id}"),
+        ("patch", "/v0/organizations/{organization_id}"),
+        ("delete", "/v0/organizations/{organization_id}"),
+        ("get", "/v0/organizations/{organization_id}/projects"),
+        ("post", "/v0/organizations/{organization_id}/projects"),
+        ("get", "/v0/projects/{project_id}"),
+        ("patch", "/v0/projects/{project_id}"),
+        ("delete", "/v0/projects/{project_id}"),
     ]
     for method, path in operations:
         assert isinstance(spec["paths"][path][method], dict), f"missing {method} {path}"

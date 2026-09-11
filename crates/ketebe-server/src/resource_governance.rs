@@ -4,6 +4,8 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use serde::{Deserialize, Serialize};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ResourceWorkClass {
     Query,
@@ -24,7 +26,7 @@ impl ResourceWorkClass {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ThroughputBudget {
     pub units: u64,
     pub window: Duration,
@@ -39,7 +41,7 @@ impl ThroughputBudget {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProjectResourceBudget {
     pub max_concurrent_queries: u32,
     pub max_concurrent_writes: u32,
@@ -61,7 +63,7 @@ impl Default for ProjectResourceBudget {
 }
 
 impl ProjectResourceBudget {
-    fn validate(self) -> Result<Self, ResourceGovernanceError> {
+    pub(crate) fn validate(self) -> Result<Self, ResourceGovernanceError> {
         if self.max_concurrent_queries == 0
             || self.max_concurrent_writes == 0
             || self.max_concurrent_ingestion == 0

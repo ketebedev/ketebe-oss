@@ -169,3 +169,138 @@ service Records {
   rpc Delete(DeleteRecordRequest) returns (DeleteRecordResponse);
 }
 service Query { rpc Query(QueryRequest) returns (QueryResponse); }
+
+
+enum ResourceLifecycle {
+  RESOURCE_LIFECYCLE_UNSPECIFIED = 0;
+  RESOURCE_LIFECYCLE_ACTIVE = 1;
+  RESOURCE_LIFECYCLE_SUSPENDED = 2;
+  RESOURCE_LIFECYCLE_DELETING = 3;
+}
+
+enum OrganizationRole {
+  ORGANIZATION_ROLE_UNSPECIFIED = 0;
+  ORGANIZATION_ROLE_OWNER = 1;
+  ORGANIZATION_ROLE_ADMIN = 2;
+  ORGANIZATION_ROLE_MEMBER = 3;
+  ORGANIZATION_ROLE_BILLING_ADMIN = 4;
+}
+
+enum ProjectRole {
+  PROJECT_ROLE_UNSPECIFIED = 0;
+  PROJECT_ROLE_READER = 1;
+  PROJECT_ROLE_EDITOR = 2;
+  PROJECT_ROLE_OWNER = 3;
+}
+
+message Organization {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  ResourceLifecycle lifecycle = 4;
+  uint64 created_at_unix = 5;
+  uint64 updated_at_unix = 6;
+}
+
+message Project {
+  string id = 1;
+  string organization_id = 2;
+  string name = 3;
+  string slug = 4;
+  ResourceLifecycle lifecycle = 5;
+  uint64 created_at_unix = 6;
+  uint64 updated_at_unix = 7;
+}
+
+message OrganizationMembership {
+  string organization_id = 1;
+  string subject = 2;
+  OrganizationRole role = 3;
+}
+
+message ProjectMembership {
+  string project_id = 1;
+  string subject = 2;
+  ProjectRole role = 3;
+}
+
+message CreateOrganizationRequest { string id = 1; string name = 2; string slug = 3; }
+message ListOrganizationsRequest {}
+message ListOrganizationsResponse { repeated Organization organizations = 1; }
+message GetOrganizationRequest { string id = 1; }
+message UpdateOrganizationRequest {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  ResourceLifecycle lifecycle = 4;
+}
+message DeleteOrganizationRequest { string id = 1; }
+message DeleteOrganizationResponse {}
+
+message CreateProjectRequest {
+  string organization_id = 1;
+  string id = 2;
+  string name = 3;
+  string slug = 4;
+}
+message ListProjectsRequest { string organization_id = 1; }
+message ListProjectsResponse { repeated Project projects = 1; }
+message GetProjectRequest { string id = 1; }
+message UpdateProjectRequest {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  ResourceLifecycle lifecycle = 4;
+}
+message DeleteProjectRequest { string id = 1; }
+message DeleteProjectResponse {}
+
+message ListOrganizationMembershipsRequest { string organization_id = 1; }
+message ListOrganizationMembershipsResponse {
+  repeated OrganizationMembership memberships = 1;
+}
+message UpsertOrganizationMembershipRequest {
+  string organization_id = 1;
+  string subject = 2;
+  OrganizationRole role = 3;
+}
+message DeleteOrganizationMembershipRequest {
+  string organization_id = 1;
+  string subject = 2;
+}
+message DeleteOrganizationMembershipResponse {}
+
+message ListProjectMembershipsRequest { string project_id = 1; }
+message ListProjectMembershipsResponse { repeated ProjectMembership memberships = 1; }
+message UpsertProjectMembershipRequest {
+  string project_id = 1;
+  string subject = 2;
+  ProjectRole role = 3;
+}
+message DeleteProjectMembershipRequest {
+  string project_id = 1;
+  string subject = 2;
+}
+message DeleteProjectMembershipResponse {}
+
+service ControlPlane {
+  rpc CreateOrganization(CreateOrganizationRequest) returns (Organization);
+  rpc ListOrganizations(ListOrganizationsRequest) returns (ListOrganizationsResponse);
+  rpc GetOrganization(GetOrganizationRequest) returns (Organization);
+  rpc UpdateOrganization(UpdateOrganizationRequest) returns (Organization);
+  rpc DeleteOrganization(DeleteOrganizationRequest) returns (DeleteOrganizationResponse);
+
+  rpc CreateProject(CreateProjectRequest) returns (Project);
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+  rpc GetProject(GetProjectRequest) returns (Project);
+  rpc UpdateProject(UpdateProjectRequest) returns (Project);
+  rpc DeleteProject(DeleteProjectRequest) returns (DeleteProjectResponse);
+
+  rpc ListOrganizationMemberships(ListOrganizationMembershipsRequest) returns (ListOrganizationMembershipsResponse);
+  rpc UpsertOrganizationMembership(UpsertOrganizationMembershipRequest) returns (OrganizationMembership);
+  rpc DeleteOrganizationMembership(DeleteOrganizationMembershipRequest) returns (DeleteOrganizationMembershipResponse);
+
+  rpc ListProjectMemberships(ListProjectMembershipsRequest) returns (ListProjectMembershipsResponse);
+  rpc UpsertProjectMembership(UpsertProjectMembershipRequest) returns (ProjectMembership);
+  rpc DeleteProjectMembership(DeleteProjectMembershipRequest) returns (DeleteProjectMembershipResponse);
+}

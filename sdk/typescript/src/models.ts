@@ -76,3 +76,29 @@ export interface Job {
 
 export interface StartEmbeddingMigration { target_profile: string }
 export type EmbeddingMigration = Record<string, unknown>;
+
+export type ResourceLifecycle = "active" | "suspended" | "deleting";
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  lifecycle: ResourceLifecycle;
+  created_at_unix: bigint;
+  updated_at_unix: bigint;
+}
+
+export interface Project {
+  id: string;
+  organization_id: string;
+  name: string;
+  slug: string;
+  lifecycle: ResourceLifecycle;
+  created_at_unix: bigint;
+  updated_at_unix: bigint;
+}
+
+export interface CreateOrganization { id: string; name: string; slug: string }
+export interface UpdateOrganization { name: string; slug: string; lifecycle: ResourceLifecycle }
+export interface CreateProject { id: string; name: string; slug: string }
+export interface UpdateProject { name: string; slug: string; lifecycle: ResourceLifecycle }

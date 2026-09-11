@@ -56,7 +56,7 @@ pub(crate) async fn resolve_existing_scope(
     // Deterministic compatibility bridge for pre-scope OSS collections. The authenticated
     // development principal is pinned to the default project, so legacy data can never be
     // claimed by a different project.
-    if principal.project_id() == Some(ProjectId::default_project().as_str())
+    if principal.workload_project_id() == Some(ProjectId::default_project().as_str())
         && let Ok(collection_id) = CollectionId::new(collection_name)
         && state
             .catalog
@@ -78,7 +78,7 @@ pub(crate) async fn list_project_scopes(
     principal: &Principal,
 ) -> Result<Vec<(String, DataPlaneScope)>, DataPlaneRequestError> {
     let project = principal
-        .project_id()
+        .workload_project_id()
         .ok_or(DataPlaneRequestError::Resolution(
             DataPlaneResolutionError::MissingProjectScope,
         ))?;
@@ -139,7 +139,7 @@ pub(crate) fn remove_scope(
     collection_id: &CollectionId,
 ) -> Result<(), DataPlaneRequestError> {
     let project = principal
-        .project_id()
+        .workload_project_id()
         .ok_or(DataPlaneRequestError::Resolution(
             DataPlaneResolutionError::MissingProjectScope,
         ))?;

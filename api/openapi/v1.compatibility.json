@@ -2,31 +2,211 @@
   "contract_version": 1,
   "policy": "additive-only-within-major",
   "operations": [
-    {"method": "get", "path": "/healthz", "operation_id": "health"},
-    {"method": "get", "path": "/readyz", "operation_id": "ready"},
-    {"method": "get", "path": "/v0/collections", "operation_id": "listCollections"},
-    {"method": "post", "path": "/v0/collections", "operation_id": "createCollection"},
-    {"method": "get", "path": "/v0/collections/{collection_id}", "operation_id": "getCollection"},
-    {"method": "delete", "path": "/v0/collections/{collection_id}", "operation_id": "deleteCollection"},
-    {"method": "put", "path": "/v0/collections/{collection_id}/lexical-schema", "operation_id": "updateLexicalSchema"},
-    {"method": "put", "path": "/v0/collections/{collection_id}/records/{record_id}", "operation_id": "upsertRecord"},
-    {"method": "delete", "path": "/v0/collections/{collection_id}/records/{record_id}", "operation_id": "deleteRecord"},
-    {"method": "post", "path": "/v0/collections/{collection_id}/records:batchUpsert", "operation_id": "batchUpsertRecords"},
-    {"method": "put", "path": "/v0/collections/{collection_id}/documents/{record_id}", "operation_id": "upsertDocument"},
-    {"method": "delete", "path": "/v0/collections/{collection_id}/documents/{record_id}", "operation_id": "deleteDocument"},
-    {"method": "post", "path": "/v0/collections/{collection_id}/query", "operation_id": "queryCollectionV0"},
-    {"method": "post", "path": "/v1/collections/{collection_id}/query", "operation_id": "queryCollection"},
-    {"method": "get", "path": "/v1/collections/{collection_id}/search-profiles", "operation_id": "listSearchProfiles"},
-    {"method": "post", "path": "/v1/collections/{collection_id}/search-profiles", "operation_id": "createSearchProfile"},
-    {"method": "get", "path": "/v1/collections/{collection_id}/search-profiles/{selector}", "operation_id": "getSearchProfile"},
-    {"method": "delete", "path": "/v1/collections/{collection_id}/search-profiles/{selector}", "operation_id": "deleteSearchProfile"},
-    {"method": "get", "path": "/v0/jobs/{job_id}", "operation_id": "getJob"},
-    {"method": "post", "path": "/v0/jobs/{job_id}/cancel", "operation_id": "cancelJob"},
-    {"method": "get", "path": "/v0/collections/{collection_id}/embedding-migration", "operation_id": "getEmbeddingMigration"},
-    {"method": "post", "path": "/v0/collections/{collection_id}/embedding-migration", "operation_id": "startEmbeddingMigration"},
-    {"method": "post", "path": "/v0/collections/{collection_id}/embedding-migration/catch-up", "operation_id": "catchUpEmbeddingMigration"},
-    {"method": "post", "path": "/v0/collections/{collection_id}/embedding-migration/catch-up-job", "operation_id": "startEmbeddingMigrationCatchUpJob"},
-    {"method": "post", "path": "/v0/collections/{collection_id}/embedding-migration/activate", "operation_id": "activateEmbeddingMigration"}
+    {
+      "method": "get",
+      "path": "/healthz",
+      "operation_id": "health"
+    },
+    {
+      "method": "get",
+      "path": "/readyz",
+      "operation_id": "ready"
+    },
+    {
+      "method": "get",
+      "path": "/v0/collections",
+      "operation_id": "listCollections"
+    },
+    {
+      "method": "post",
+      "path": "/v0/collections",
+      "operation_id": "createCollection"
+    },
+    {
+      "method": "get",
+      "path": "/v0/collections/{collection_id}",
+      "operation_id": "getCollection"
+    },
+    {
+      "method": "delete",
+      "path": "/v0/collections/{collection_id}",
+      "operation_id": "deleteCollection"
+    },
+    {
+      "method": "put",
+      "path": "/v0/collections/{collection_id}/lexical-schema",
+      "operation_id": "updateLexicalSchema"
+    },
+    {
+      "method": "put",
+      "path": "/v0/collections/{collection_id}/records/{record_id}",
+      "operation_id": "upsertRecord"
+    },
+    {
+      "method": "delete",
+      "path": "/v0/collections/{collection_id}/records/{record_id}",
+      "operation_id": "deleteRecord"
+    },
+    {
+      "method": "post",
+      "path": "/v0/collections/{collection_id}/records:batchUpsert",
+      "operation_id": "batchUpsertRecords"
+    },
+    {
+      "method": "put",
+      "path": "/v0/collections/{collection_id}/documents/{record_id}",
+      "operation_id": "upsertDocument"
+    },
+    {
+      "method": "delete",
+      "path": "/v0/collections/{collection_id}/documents/{record_id}",
+      "operation_id": "deleteDocument"
+    },
+    {
+      "method": "post",
+      "path": "/v0/collections/{collection_id}/query",
+      "operation_id": "queryCollectionV0"
+    },
+    {
+      "method": "post",
+      "path": "/v1/collections/{collection_id}/query",
+      "operation_id": "queryCollection"
+    },
+    {
+      "method": "get",
+      "path": "/v1/collections/{collection_id}/search-profiles",
+      "operation_id": "listSearchProfiles"
+    },
+    {
+      "method": "post",
+      "path": "/v1/collections/{collection_id}/search-profiles",
+      "operation_id": "createSearchProfile"
+    },
+    {
+      "method": "get",
+      "path": "/v1/collections/{collection_id}/search-profiles/{selector}",
+      "operation_id": "getSearchProfile"
+    },
+    {
+      "method": "delete",
+      "path": "/v1/collections/{collection_id}/search-profiles/{selector}",
+      "operation_id": "deleteSearchProfile"
+    },
+    {
+      "method": "get",
+      "path": "/v0/jobs/{job_id}",
+      "operation_id": "getJob"
+    },
+    {
+      "method": "post",
+      "path": "/v0/jobs/{job_id}/cancel",
+      "operation_id": "cancelJob"
+    },
+    {
+      "method": "get",
+      "path": "/v0/collections/{collection_id}/embedding-migration",
+      "operation_id": "getEmbeddingMigration"
+    },
+    {
+      "method": "post",
+      "path": "/v0/collections/{collection_id}/embedding-migration",
+      "operation_id": "startEmbeddingMigration"
+    },
+    {
+      "method": "post",
+      "path": "/v0/collections/{collection_id}/embedding-migration/catch-up",
+      "operation_id": "catchUpEmbeddingMigration"
+    },
+    {
+      "method": "post",
+      "path": "/v0/collections/{collection_id}/embedding-migration/catch-up-job",
+      "operation_id": "startEmbeddingMigrationCatchUpJob"
+    },
+    {
+      "method": "post",
+      "path": "/v0/collections/{collection_id}/embedding-migration/activate",
+      "operation_id": "activateEmbeddingMigration"
+    },
+    {
+      "method": "get",
+      "path": "/v0/organizations",
+      "operation_id": "listOrganizations"
+    },
+    {
+      "method": "post",
+      "path": "/v0/organizations",
+      "operation_id": "createOrganization"
+    },
+    {
+      "method": "get",
+      "path": "/v0/organizations/{organization_id}",
+      "operation_id": "getOrganization"
+    },
+    {
+      "method": "patch",
+      "path": "/v0/organizations/{organization_id}",
+      "operation_id": "updateOrganization"
+    },
+    {
+      "method": "delete",
+      "path": "/v0/organizations/{organization_id}",
+      "operation_id": "deleteOrganization"
+    },
+    {
+      "method": "get",
+      "path": "/v0/organizations/{organization_id}/projects",
+      "operation_id": "listProjects"
+    },
+    {
+      "method": "post",
+      "path": "/v0/organizations/{organization_id}/projects",
+      "operation_id": "createProject"
+    },
+    {
+      "method": "get",
+      "path": "/v0/projects/{project_id}",
+      "operation_id": "getProject"
+    },
+    {
+      "method": "patch",
+      "path": "/v0/projects/{project_id}",
+      "operation_id": "updateProject"
+    },
+    {
+      "method": "delete",
+      "path": "/v0/projects/{project_id}",
+      "operation_id": "deleteProject"
+    },
+    {
+      "method": "get",
+      "path": "/v0/organizations/{organization_id}/memberships",
+      "operation_id": "listOrganizationMemberships"
+    },
+    {
+      "method": "put",
+      "path": "/v0/organizations/{organization_id}/memberships/{subject}",
+      "operation_id": "upsertOrganizationMembership"
+    },
+    {
+      "method": "delete",
+      "path": "/v0/organizations/{organization_id}/memberships/{subject}",
+      "operation_id": "deleteOrganizationMembership"
+    },
+    {
+      "method": "get",
+      "path": "/v0/projects/{project_id}/memberships",
+      "operation_id": "listProjectMemberships"
+    },
+    {
+      "method": "put",
+      "path": "/v0/projects/{project_id}/memberships/{subject}",
+      "operation_id": "upsertProjectMembership"
+    },
+    {
+      "method": "delete",
+      "path": "/v0/projects/{project_id}/memberships/{subject}",
+      "operation_id": "deleteProjectMembership"
+    }
   ],
   "required_components": [
     "ErrorEnvelope",
@@ -40,6 +220,13 @@
     "SearchProfileCreate",
     "SearchProfile",
     "Job",
-    "EmbeddingMigrationState"
+    "EmbeddingMigrationState",
+    "ResourceLifecycle",
+    "Organization",
+    "Project",
+    "OrganizationRole",
+    "ProjectRole",
+    "OrganizationMembership",
+    "ProjectMembership"
   ]
 }

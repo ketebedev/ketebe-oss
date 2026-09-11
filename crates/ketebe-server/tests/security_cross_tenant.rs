@@ -1,12 +1,14 @@
 use ketebe_core::{
     CollectionId, DataEncryptionKeyRef, DataEncryptionKeyResolver, DataEncryptionKeyVersion,
-    DataEncryptionOwnership, DataEncryptionPolicy, DataPlaneScope, ProjectId,
+    DataEncryptionOwnership, DataEncryptionPolicy, DataPlaneScope, Organization, OrganizationId,
+    Project, ProjectId, ResourceLifecycleState, ResourceTimestamps,
 };
 use ketebe_server::{
     ApiKeyStore, AuthenticationService, AuthorizationAction, AuthorizationError,
     AuthorizationService, ClaimOutcome, InMemoryResourceGovernor, ProjectResourceBudget,
     ResourceGovernanceError, ResourceGovernor, ResourceWorkClass,
 };
+use ketebe_storage::ControlPlaneStore;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -30,6 +32,34 @@ fn scope(project: &str, collection: &str) -> DataPlaneScope {
 #[test]
 fn api_key_rotation_revocation_and_restart_fail_closed() {
     let root = temp_root("security-api-keys");
+    let control_plane = ControlPlaneStore::open(root.join("control-plane")).expect("control-plane");
+    let organization_id = OrganizationId::new("org-a").expect("organization id");
+    control_plane
+        .create_organization(
+            Organization::new(
+                organization_id.clone(),
+                "ACME",
+                "acme",
+                ResourceLifecycleState::Active,
+                ResourceTimestamps::new(10, 10).expect("timestamps"),
+            )
+            .expect("organization"),
+        )
+        .expect("create organization");
+    control_plane
+        .create_project(
+            Project::new(
+                ProjectId::new("project-a").expect("project id"),
+                organization_id,
+                "Project A",
+                "project-a",
+                ResourceLifecycleState::Active,
+                ResourceTimestamps::new(10, 10).expect("timestamps"),
+            )
+            .expect("project"),
+        )
+        .expect("create project");
+
     let store = ApiKeyStore::open(&root).expect("store");
     let issued = store.create("project-a", None).expect("create");
     let old = issued.credential.clone();
@@ -37,7 +67,7 @@ fn api_key_rotation_revocation_and_restart_fail_closed() {
     assert_eq!(
         auth.authenticate_authorization_value(Some(&format!("Bearer {}", old.expose_secret())))
             .expect("old credential active")
-            .project_id(),
+            .workload_project_id(),
         Some("project-a")
     );
 
@@ -81,6 +111,37 @@ fn api_key_rotation_revocation_and_restart_fail_closed() {
 #[test]
 fn authorization_prevents_cross_project_discovery_and_preserves_same_name_namespace() {
     let root = temp_root("security-authz");
+    let control_plane = ControlPlaneStore::open(root.join("control-plane")).expect("control-plane");
+    let organization_id = OrganizationId::new("org-a").expect("organization id");
+    control_plane
+        .create_organization(
+            Organization::new(
+                organization_id.clone(),
+                "ACME",
+                "acme",
+                ResourceLifecycleState::Active,
+                ResourceTimestamps::new(10, 10).expect("timestamps"),
+            )
+            .expect("organization"),
+        )
+        .expect("create organization");
+    for project in ["project-a", "project-b"] {
+        let project_id = ProjectId::new(project).expect("project id");
+        control_plane
+            .create_project(
+                Project::new(
+                    project_id.clone(),
+                    organization_id.clone(),
+                    project,
+                    project,
+                    ResourceLifecycleState::Active,
+                    ResourceTimestamps::new(10, 10).expect("timestamps"),
+                )
+                .expect("project"),
+            )
+            .expect("create project");
+    }
+
     let key_store = ApiKeyStore::open(&root).expect("key store");
     let key_a = key_store.create("project-a", None).expect("key a");
     let key_b = key_store.create("project-b", None).expect("key b");
@@ -132,7 +193,7 @@ fn authorization_prevents_cross_project_discovery_and_preserves_same_name_namesp
             AuthorizationAction::ProjectAdmin,
             "project-b"
         ),
-        Err(AuthorizationError::Denied)
+        Err(AuthorizationError::Undiscoverable)
     ));
 
     fs::remove_dir_all(root).expect("cleanup");

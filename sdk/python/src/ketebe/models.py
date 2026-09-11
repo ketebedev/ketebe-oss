@@ -160,3 +160,47 @@ class QueryResponse:
             hits=[QueryHit.from_wire(hit) for hit in body.get("hits", [])],
             explain=body.get("explain"),
         )
+
+
+@dataclass(slots=True)
+class Organization:
+    id: str
+    name: str
+    slug: str
+    lifecycle: str
+    created_at_unix: int
+    updated_at_unix: int
+
+    @classmethod
+    def from_wire(cls, body: Json) -> "Organization":
+        return cls(
+            id=str(body["id"]),
+            name=str(body["name"]),
+            slug=str(body["slug"]),
+            lifecycle=str(body["lifecycle"]),
+            created_at_unix=int(body["created_at_unix"]),
+            updated_at_unix=int(body["updated_at_unix"]),
+        )
+
+
+@dataclass(slots=True)
+class Project:
+    id: str
+    organization_id: str
+    name: str
+    slug: str
+    lifecycle: str
+    created_at_unix: int
+    updated_at_unix: int
+
+    @classmethod
+    def from_wire(cls, body: Json) -> "Project":
+        return cls(
+            id=str(body["id"]),
+            organization_id=str(body["organization_id"]),
+            name=str(body["name"]),
+            slug=str(body["slug"]),
+            lifecycle=str(body["lifecycle"]),
+            created_at_unix=int(body["created_at_unix"]),
+            updated_at_unix=int(body["updated_at_unix"]),
+        )

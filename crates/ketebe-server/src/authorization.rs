@@ -9,14 +9,37 @@ use axum::extract::{Request, State};
 use axum::http::{Method, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
+use ketebe_core::{OrganizationId, ProjectId};
+use ketebe_storage::ControlPlaneStore;
 use serde::{Deserialize, Serialize};
 
-use crate::Principal;
+use crate::{
+    AuditService, OrganizationAction, OrganizationMembershipService, Principal, PrincipalKind,
+    ProjectMembershipService,
+};
 
 const STORE_VERSION: u32 = 1;
 
 fn collection_policy_key(project_id: &str, collection_id: &str) -> String {
     format!("{project_id}\u{1f}{collection_id}")
+}
+
+fn project_role_allows_action(role: ProjectRole, action: AuthorizationAction) -> bool {
+    match role {
+        ProjectRole::Owner => true,
+        ProjectRole::Editor => matches!(
+            action,
+            AuthorizationAction::CollectionDiscover
+                | AuthorizationAction::CollectionRead
+                | AuthorizationAction::CollectionCreate
+                | AuthorizationAction::CollectionWrite
+                | AuthorizationAction::CollectionDelete
+        ),
+        ProjectRole::Reader => matches!(
+            action,
+            AuthorizationAction::CollectionDiscover | AuthorizationAction::CollectionRead
+        ),
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,6 +100,7 @@ pub enum AuthorizationError {
     Io(std::io::Error),
     Json(serde_json::Error),
     UnsupportedVersion(u32),
+    Resolver(String),
     LockPoisoned,
 }
 
@@ -92,6 +116,7 @@ impl fmt::Display for AuthorizationError {
             Self::UnsupportedVersion(version) => {
                 write!(f, "unsupported authorization store version {version}")
             }
+            Self::Resolver(message) => write!(f, "authorization resolver error: {message}"),
             Self::LockPoisoned => f.write_str("authorization store lock poisoned"),
         }
     }
@@ -140,6 +165,7 @@ pub struct AuthorizationService {
     mode: AuthorizationMode,
     path: Option<Arc<PathBuf>>,
     state: Arc<Mutex<PolicyFile>>,
+    control_plane: Option<ControlPlaneStore>,
 }
 
 impl fmt::Debug for AuthorizationService {
@@ -157,6 +183,7 @@ impl AuthorizationService {
             mode: AuthorizationMode::Development,
             path: None,
             state: Arc::new(Mutex::new(PolicyFile::default())),
+            control_plane: None,
         }
     }
 
@@ -174,16 +201,36 @@ impl AuthorizationService {
         } else {
             PolicyFile::default()
         };
+        let control_plane = ControlPlaneStore::open(data_dir.as_ref().join("control-plane"))
+            .map_err(|error| AuthorizationError::Resolver(error.to_string()))?;
         Ok(Self {
             mode: AuthorizationMode::Required,
             path: Some(Arc::new(path)),
             state: Arc::new(Mutex::new(state)),
+            control_plane: Some(control_plane),
         })
     }
 
     #[must_use]
     pub fn mode(&self) -> AuthorizationMode {
         self.mode
+    }
+
+    pub fn project_ids(&self) -> Result<Vec<String>, AuthorizationError> {
+        let state = self
+            .state
+            .lock()
+            .map_err(|_| AuthorizationError::LockPoisoned)?;
+        let mut project_ids = state.projects.keys().cloned().collect::<Vec<_>>();
+        project_ids.extend(
+            state
+                .collections
+                .values()
+                .map(|collection| collection.project_id.clone()),
+        );
+        project_ids.sort();
+        project_ids.dedup();
+        Ok(project_ids)
     }
 
     pub fn set_project_role(
@@ -247,23 +294,81 @@ impl AuthorizationService {
         if self.mode == AuthorizationMode::Development {
             return Ok(());
         }
-        if principal.project_id() != Some(project_id) {
-            return Err(AuthorizationError::Denied);
+
+        let project_id = ProjectId::new(project_id.to_string())
+            .map_err(|_| AuthorizationError::Undiscoverable)?;
+        let data_dir = self
+            .path
+            .as_ref()
+            .and_then(|path| path.parent())
+            .and_then(Path::parent)
+            .ok_or_else(|| {
+                AuthorizationError::Resolver("authorization data directory unavailable".to_string())
+            })?;
+        let control_plane = ControlPlaneStore::open(data_dir.join("control-plane"))
+            .map_err(|error| AuthorizationError::Resolver(error.to_string()))?;
+        let project = control_plane
+            .project(&project_id)
+            .map_err(|error| AuthorizationError::Resolver(error.to_string()))?
+            .ok_or(AuthorizationError::Undiscoverable)?;
+        if project.lifecycle() != ketebe_core::ResourceLifecycleState::Active {
+            return Err(AuthorizationError::Undiscoverable);
         }
-        let state = self
-            .state
-            .lock()
-            .map_err(|_| AuthorizationError::LockPoisoned)?;
-        let role = state
-            .projects
-            .get(project_id)
-            .and_then(|p| p.roles.get(principal.subject()).copied())
-            .unwrap_or(ProjectRole::Owner);
-        if project_role_allows(role, action) {
-            Ok(())
-        } else {
-            Err(AuthorizationError::Denied)
+
+        if principal.kind() == PrincipalKind::WorkloadCredential {
+            if principal.workload_project_id() != Some(project_id.as_str()) {
+                return Err(AuthorizationError::Undiscoverable);
+            }
+            if let Some(role) = principal.workload_project_role()
+                && !project_role_allows_action(role, action)
+            {
+                return Err(AuthorizationError::Undiscoverable);
+            }
+            return Ok(());
         }
+
+        ProjectMembershipService::open(
+            data_dir,
+            control_plane.clone(),
+            Arc::new(AuditService::noop()),
+        )
+        .map_err(|error| AuthorizationError::Resolver(error.to_string()))?
+        .authorize(principal, &project_id, action)
+        .map_err(|_| AuthorizationError::Undiscoverable)
+    }
+
+    pub fn authorize_organization(
+        &self,
+        principal: &Principal,
+        action: OrganizationAction,
+        organization_id: &str,
+    ) -> Result<(), AuthorizationError> {
+        if self.mode == AuthorizationMode::Development {
+            return Ok(());
+        }
+        let organization_id = OrganizationId::new(organization_id.to_string())
+            .map_err(|_| AuthorizationError::Undiscoverable)?;
+        let data_dir = self
+            .path
+            .as_ref()
+            .and_then(|path| path.parent())
+            .and_then(Path::parent)
+            .ok_or_else(|| {
+                AuthorizationError::Resolver("authorization data directory unavailable".to_string())
+            })?;
+        OrganizationMembershipService::open(
+            data_dir,
+            self.control_plane
+                .as_ref()
+                .ok_or_else(|| {
+                    AuthorizationError::Resolver("control-plane resolver unavailable".to_string())
+                })?
+                .clone(),
+            Arc::new(AuditService::noop()),
+        )
+        .map_err(|error| AuthorizationError::Resolver(error.to_string()))?
+        .authorize(principal, &organization_id, action)
+        .map_err(|_| AuthorizationError::Undiscoverable)
     }
 
     pub fn authorize_principal_project(
@@ -275,7 +380,7 @@ impl AuthorizationService {
             return Ok("development".to_string());
         }
         let project = principal
-            .project_id()
+            .workload_project_id()
             .ok_or(AuthorizationError::MissingProject)?
             .to_string();
         self.authorize_project(principal, action, &project)?;
@@ -295,8 +400,26 @@ impl AuthorizationService {
             });
         }
         let project_id = principal
-            .project_id()
+            .workload_project_id()
             .ok_or(AuthorizationError::MissingProject)?;
+        self.authorize_collection_in_project(principal, action, project_id, collection_id)
+    }
+
+    pub fn authorize_collection_in_project(
+        &self,
+        principal: &Principal,
+        action: AuthorizationAction,
+        project_id: &str,
+        collection_id: &str,
+    ) -> Result<AuthorizationResource, AuthorizationError> {
+        if self.mode == AuthorizationMode::Development {
+            return Ok(AuthorizationResource::Collection {
+                project_id: project_id.to_string(),
+                collection_id: collection_id.to_string(),
+            });
+        }
+
+        self.authorize_project(principal, action, project_id)?;
         let state = self
             .state
             .lock()
@@ -312,20 +435,13 @@ impl AuthorizationService {
                     .filter(|legacy| legacy.project_id == project_id)
             })
             .ok_or(AuthorizationError::Undiscoverable)?;
-        let project_role = state
-            .projects
-            .get(&collection.project_id)
-            .and_then(|p| p.roles.get(principal.subject()).copied())
-            .unwrap_or(ProjectRole::Owner);
-        let allowed =
-            if let Some(permission) = collection.permissions.get(principal.subject()).copied() {
-                collection_permission_allows(permission, action)
-            } else {
-                project_role_allows(project_role, action)
-            };
-        if !allowed {
+
+        if let Some(permission) = collection.permissions.get(principal.subject()).copied()
+            && !collection_permission_allows(permission, action)
+        {
             return Err(AuthorizationError::Undiscoverable);
         }
+
         Ok(AuthorizationResource::Collection {
             project_id: collection.project_id.clone(),
             collection_id: collection_id.to_string(),
@@ -398,7 +514,7 @@ impl AuthorizationService {
             return Ok(());
         }
         let project_id = principal
-            .project_id()
+            .workload_project_id()
             .ok_or(AuthorizationError::MissingProject)?;
         let mut state = self
             .state
@@ -440,7 +556,7 @@ impl AuthorizationService {
             collection_id,
         )?;
         let project_id = principal
-            .project_id()
+            .workload_project_id()
             .ok_or(AuthorizationError::MissingProject)?;
         let mut state = self
             .state
@@ -477,28 +593,12 @@ impl AuthorizationService {
     }
 }
 
-fn project_role_allows(role: ProjectRole, action: AuthorizationAction) -> bool {
-    match role {
-        ProjectRole::Owner => true,
-        ProjectRole::Editor => matches!(
-            action,
-            AuthorizationAction::CollectionDiscover
-                | AuthorizationAction::CollectionRead
-                | AuthorizationAction::CollectionCreate
-                | AuthorizationAction::CollectionWrite
-        ),
-        ProjectRole::Reader => matches!(
-            action,
-            AuthorizationAction::CollectionDiscover | AuthorizationAction::CollectionRead
-        ),
-    }
-}
 fn collection_permission_allows(
     permission: CollectionPermission,
     action: AuthorizationAction,
 ) -> bool {
     match permission {
-        CollectionPermission::Admin => true,
+        CollectionPermission::Admin => !matches!(action, AuthorizationAction::ProjectAdmin),
         CollectionPermission::Write => matches!(
             action,
             AuthorizationAction::CollectionDiscover
@@ -523,7 +623,7 @@ fn audit_http_decision(
 ) {
     let mut event = crate::AuditEvent::new(category, action, result, crate::AuditOrigin::Http)
         .with_actor(principal.subject());
-    if let Some(project_id) = principal.project_id() {
+    if let Some(project_id) = principal.workload_project_id() {
         event = event.with_project(project_id);
     }
     if let Some(resource_id) = resource_id {
@@ -695,7 +795,7 @@ pub(crate) async fn http_authorize(
         );
         return next.run(request).await;
     }
-    let project_id = principal.project_id().unwrap_or("development");
+    let project_id = principal.workload_project_id().unwrap_or("development");
     let class = match *request.method() {
         Method::GET => crate::AdmissionClass::Read,
         Method::DELETE => crate::AdmissionClass::Admin,
@@ -847,20 +947,69 @@ fn grpc_governance_status(error: crate::GovernanceError) -> tonic::Status {
 mod tests {
     use super::*;
     use crate::{
-        AuthenticationError, AuthenticationService, Credential, CredentialAuthenticator, Principal,
+        AuthenticationError, AuthenticationService, Credential, CredentialAuthenticator,
+        OrganizationMembershipService, OrganizationRole, Principal, PrincipalKind,
+        ProjectMembershipService,
     };
+    use ketebe_core::{
+        Organization, OrganizationId, Project, ProjectId, ResourceLifecycleState,
+        ResourceTimestamps,
+    };
+    use ketebe_storage::ControlPlaneStore;
     use std::sync::Arc;
 
     fn temp_dir(name: &str) -> PathBuf {
         std::env::temp_dir().join(format!("ketebe-rbac-{name}-{}", std::process::id()))
     }
     fn principal(subject: &str, project: &str) -> Principal {
-        Principal::for_project(subject, project).unwrap()
+        Principal::for_workload_project(subject, project).unwrap()
+    }
+
+    fn prepare_projects(dir: &Path, project_ids: &[&str]) {
+        let control_plane = ControlPlaneStore::open(dir.join("control-plane")).unwrap();
+        let organization_id = OrganizationId::new("org-a").unwrap();
+        if control_plane
+            .organization(&organization_id)
+            .unwrap()
+            .is_none()
+        {
+            control_plane
+                .create_organization(
+                    Organization::new(
+                        organization_id.clone(),
+                        "ACME",
+                        "acme",
+                        ResourceLifecycleState::Active,
+                        ResourceTimestamps::new(10, 10).unwrap(),
+                    )
+                    .unwrap(),
+                )
+                .unwrap();
+        }
+        for project_id in project_ids {
+            let project_id = ProjectId::new((*project_id).to_string()).unwrap();
+            if control_plane.project(&project_id).unwrap().is_none() {
+                control_plane
+                    .create_project(
+                        Project::new(
+                            project_id.clone(),
+                            organization_id.clone(),
+                            project_id.as_str(),
+                            project_id.as_str(),
+                            ResourceLifecycleState::Active,
+                            ResourceTimestamps::new(10, 10).unwrap(),
+                        )
+                        .unwrap(),
+                    )
+                    .unwrap();
+            }
+        }
     }
 
     #[test]
     fn cross_project_resources_are_undiscoverable_and_roles_are_enforced() {
         let dir = temp_dir("cross");
+        prepare_projects(&dir, &["project-a", "project-b"]);
         let service = AuthorizationService::required(&dir).unwrap();
         let a = principal("a", "project-a");
         let b = principal("b", "project-b");
@@ -874,9 +1023,6 @@ mod tests {
             service.authorize_collection(&b, AuthorizationAction::CollectionRead, "docs"),
             Err(AuthorizationError::Undiscoverable)
         ));
-        service
-            .set_project_role("project-a", "a", ProjectRole::Reader)
-            .unwrap();
         assert!(
             service
                 .authorize_collection(&a, AuthorizationAction::CollectionRead, "docs")
@@ -885,7 +1031,7 @@ mod tests {
         assert!(
             service
                 .authorize_collection(&a, AuthorizationAction::CollectionWrite, "docs")
-                .is_err()
+                .is_ok()
         );
         service
             .set_collection_permission("project-a", "docs", "a", CollectionPermission::Write)
@@ -901,19 +1047,17 @@ mod tests {
     #[test]
     fn same_collection_name_permissions_are_project_scoped() {
         let dir = temp_dir("permission-scope");
+        prepare_projects(&dir, &["project-a", "project-b"]);
         let service = AuthorizationService::required(&dir).unwrap();
         let a = principal("a", "project-a");
         let b = principal("b", "project-b");
         service.claim_collection(&a, "docs").unwrap();
         service.claim_collection(&b, "docs").unwrap();
         service
-            .set_project_role("project-a", "a", ProjectRole::Reader)
-            .unwrap();
-        service
-            .set_project_role("project-b", "b", ProjectRole::Reader)
-            .unwrap();
-        service
             .set_collection_permission("project-a", "docs", "a", CollectionPermission::Write)
+            .unwrap();
+        service
+            .set_collection_permission("project-b", "docs", "b", CollectionPermission::Read)
             .unwrap();
         assert!(
             service
@@ -932,8 +1076,8 @@ mod tests {
     impl CredentialAuthenticator for TestAuthenticator {
         fn authenticate(&self, credential: &Credential) -> Result<Principal, AuthenticationError> {
             match credential.expose_secret() {
-                "a" => Principal::for_project("subject-a", "project-a"),
-                "b" => Principal::for_project("subject-b", "project-b"),
+                "a" => Principal::for_workload_project("subject-a", "project-a"),
+                "b" => Principal::for_workload_project("subject-b", "project-b"),
                 _ => Err(AuthenticationError::InvalidCredential),
             }
         }
@@ -951,6 +1095,7 @@ mod tests {
         use tower::ServiceExt;
 
         let dir = temp_dir("governance-http");
+        prepare_projects(&dir, &["project-a"]);
         let authorization = AuthorizationService::required(&dir).unwrap();
         let governance = GovernanceService::new();
         governance
@@ -1015,6 +1160,7 @@ mod tests {
         use std::time::Duration;
 
         let dir = temp_dir("governance-grpc");
+        prepare_projects(&dir, &["project-a"]);
         let authorization = AuthorizationService::required(&dir).unwrap();
         let principal = principal("a", "project-a");
         let governance = GovernanceService::new();
@@ -1051,6 +1197,7 @@ mod tests {
         use tower::ServiceExt;
 
         let dir = temp_dir("governance-quota");
+        prepare_projects(&dir, &["project-a", "project-b"]);
         let authorization = AuthorizationService::required(&dir).unwrap();
         let governance = GovernanceService::new();
         for project in ["project-a", "project-b"] {
@@ -1105,6 +1252,7 @@ mod tests {
         use tower::ServiceExt;
 
         let dir = temp_dir("http");
+        prepare_projects(&dir, &["project-a", "project-b"]);
         let authorization = AuthorizationService::required(&dir).unwrap();
         let state = AppState::with_data_dir(RuntimeCatalog::empty_ready(), dir.clone())
             .with_authorization(authorization.clone());
@@ -1153,6 +1301,127 @@ mod tests {
         let body = to_bytes(list.into_body(), usize::MAX).await.unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(json["collections"].as_array().unwrap().len(), 0);
+        let _ = fs::remove_dir_all(dir);
+    }
+    #[test]
+    fn human_access_uses_explicit_project_membership_across_multiple_projects() {
+        let dir = temp_dir("human-multi-project");
+        prepare_projects(&dir, &["project-a", "project-b"]);
+        let control_plane = ControlPlaneStore::open(dir.join("control-plane")).unwrap();
+        let memberships =
+            ProjectMembershipService::open(&dir, control_plane, Arc::new(AuditService::noop()))
+                .unwrap();
+
+        memberships
+            .bootstrap_owner(&ProjectId::new("project-a").unwrap(), "owner-a")
+            .unwrap();
+        memberships
+            .bootstrap_owner(&ProjectId::new("project-b").unwrap(), "owner-b")
+            .unwrap();
+        let owner_a = Principal::new("owner-a", PrincipalKind::Credential).unwrap();
+        let owner_b = Principal::new("owner-b", PrincipalKind::Credential).unwrap();
+        memberships
+            .create_membership(
+                &owner_a,
+                &ProjectId::new("project-a").unwrap(),
+                "human-a",
+                ProjectRole::Reader,
+            )
+            .unwrap();
+        memberships
+            .create_membership(
+                &owner_b,
+                &ProjectId::new("project-b").unwrap(),
+                "human-a",
+                ProjectRole::Editor,
+            )
+            .unwrap();
+
+        let service = AuthorizationService::required(&dir).unwrap();
+        let human = Principal::new("human-a", PrincipalKind::Credential).unwrap();
+        assert!(
+            service
+                .authorize_project(&human, AuthorizationAction::CollectionRead, "project-a")
+                .is_ok()
+        );
+        assert!(
+            service
+                .authorize_project(&human, AuthorizationAction::CollectionWrite, "project-a")
+                .is_err()
+        );
+        assert!(
+            service
+                .authorize_project(&human, AuthorizationAction::CollectionWrite, "project-b")
+                .is_ok()
+        );
+        assert!(
+            service
+                .authorize_project(&human, AuthorizationAction::ProjectAdmin, "project-b")
+                .is_err()
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn unknown_project_and_unknown_human_subject_fail_closed() {
+        let dir = temp_dir("fail-closed");
+        prepare_projects(&dir, &["project-a"]);
+        let service = AuthorizationService::required(&dir).unwrap();
+        let human = Principal::new("unknown-human", PrincipalKind::Credential).unwrap();
+        let workload = principal("workload-a", "missing-project");
+
+        assert!(matches!(
+            service.authorize_project(&human, AuthorizationAction::CollectionRead, "project-a"),
+            Err(AuthorizationError::Undiscoverable)
+        ));
+        assert!(matches!(
+            service.authorize_project(
+                &workload,
+                AuthorizationAction::CollectionRead,
+                "missing-project"
+            ),
+            Err(AuthorizationError::Undiscoverable)
+        ));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn organization_control_plane_actions_use_organization_membership() {
+        let dir = temp_dir("organization-membership");
+        prepare_projects(&dir, &["project-a"]);
+        let control_plane = ControlPlaneStore::open(dir.join("control-plane")).unwrap();
+        let memberships = OrganizationMembershipService::open(
+            &dir,
+            control_plane,
+            Arc::new(AuditService::noop()),
+        )
+        .unwrap();
+        let organization_id = OrganizationId::new("org-a").unwrap();
+        memberships
+            .bootstrap_owner(&organization_id, "owner-a")
+            .unwrap();
+        let owner = Principal::new("owner-a", PrincipalKind::Credential).unwrap();
+        memberships
+            .create_membership(
+                &owner,
+                &organization_id,
+                "billing-a",
+                OrganizationRole::BillingAdmin,
+            )
+            .unwrap();
+
+        let service = AuthorizationService::required(&dir).unwrap();
+        let billing = Principal::new("billing-a", PrincipalKind::Credential).unwrap();
+        assert!(
+            service
+                .authorize_organization(&billing, OrganizationAction::BillingManage, "org-a")
+                .is_ok()
+        );
+        assert!(
+            service
+                .authorize_organization(&billing, OrganizationAction::MembershipWrite, "org-a")
+                .is_err()
+        );
         let _ = fs::remove_dir_all(dir);
     }
 }

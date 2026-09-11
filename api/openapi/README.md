@@ -31,8 +31,17 @@ Clients may branch on `error.code`; `error.message` is descriptive and is not a 
 
 ## Generated-client boundary
 
-The generated-client input boundary is exactly `api/openapi/v1.json`. Generated SDK code is an output artifact and must not become a second source of truth. The Rust, Python and TypeScript SDK work in issues #65, #66 and #67 should pin the contract revision used for generation and run generated-client compatibility tests against a real Ketebe server.
+The generated-client input boundary is exactly `api/openapi/v1.json`. Generated SDK code is an output artifact and must not become a second source of truth. Rust, Python, TypeScript, Java and Go first-party SDKs are contract-tested against this checked-in source and expose the stabilized Organization/Project lifecycle surface.
 
 ## gRPC parity
 
 REST and gRPC do not need identical wire representations, but public operations that exist on both transports must preserve semantic behavior. Query v1 parity is covered by the server integration suite; new cross-transport features must extend those tests.
+
+
+## v0.9 Organization and Project boundary
+
+Organization/Project lifecycle and membership operations are part of `v1.compatibility.json` and therefore part of the additive-only compatibility floor.
+
+Human multi-Project data-plane calls may use the optional `X-Ketebe-Project` header defined by the `ProjectContext` OpenAPI parameter. The header selects a Project for authorization; it does not grant access and cannot rebind a Project-scoped workload credential.
+
+See `docs/reference/v0.9-domain-contract.md` for the resource semantics, SDK/MCP behavior, bootstrap rules and v0.9 compatibility boundary.

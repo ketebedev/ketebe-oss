@@ -24,7 +24,13 @@ class OpenApiContractTest {
             new String[]{"post", "/v0/collections/{collection_id}/embedding-migration"},
             new String[]{"post", "/v0/collections/{collection_id}/embedding-migration/catch-up"},
             new String[]{"post", "/v0/collections/{collection_id}/embedding-migration/catch-up-job"},
-            new String[]{"post", "/v0/collections/{collection_id}/embedding-migration/activate"}
+            new String[]{"post", "/v0/collections/{collection_id}/embedding-migration/activate"},
+            new String[]{"get", "/v0/organizations"}, new String[]{"post", "/v0/organizations"},
+            new String[]{"get", "/v0/organizations/{organization_id}"}, new String[]{"patch", "/v0/organizations/{organization_id}"},
+            new String[]{"delete", "/v0/organizations/{organization_id}"},
+            new String[]{"get", "/v0/organizations/{organization_id}/projects"}, new String[]{"post", "/v0/organizations/{organization_id}/projects"},
+            new String[]{"get", "/v0/projects/{project_id}"}, new String[]{"patch", "/v0/projects/{project_id}"},
+            new String[]{"delete", "/v0/projects/{project_id}"}
         );
         for (String[] op : operations) assertTrue(spec.path("paths").path(op[1]).path(op[0]).isObject(), "missing " + op[0] + " " + op[1]);
         QueryRequest query = new QueryRequest().vector(List.of(1.0, 0.0)).text("vector database").topK(5).searchProfile("balanced").explain(true);

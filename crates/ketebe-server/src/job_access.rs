@@ -43,11 +43,8 @@ impl From<serde_json::Error> for JobAccessError {
     }
 }
 
-pub(crate) fn principal_project(principal: &Principal) -> String {
-    principal
-        .project_id()
-        .map(str::to_string)
-        .unwrap_or_else(|| ProjectId::default_project().as_str().to_string())
+pub(crate) fn principal_project(principal: &Principal) -> Option<String> {
+    principal.workload_project_id().map(str::to_string)
 }
 
 pub(crate) fn can_access_job(
@@ -55,7 +52,10 @@ pub(crate) fn can_access_job(
     principal: &Principal,
     job: &JobRecord,
 ) -> Result<bool, JobAccessError> {
-    Ok(job_project(state, job)? == principal_project(principal))
+    let Some(project_id) = principal_project(principal) else {
+        return Ok(false);
+    };
+    Ok(job_project(state, job)? == project_id)
 }
 
 pub(crate) fn list_jobs_for_principal(

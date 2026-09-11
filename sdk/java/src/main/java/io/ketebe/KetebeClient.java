@@ -22,14 +22,37 @@ public final class KetebeClient {
     private final ClientConfig config;
     private final HttpClient http;
     private final ObjectMapper json;
+    private final String projectId;
 
     public KetebeClient(String baseUrl) { this(ClientConfig.defaults(baseUrl)); }
     public KetebeClient(ClientConfig config) {
         this(config, HttpClient.newBuilder().connectTimeout(config.timeout()).build(), new ObjectMapper());
     }
     KetebeClient(ClientConfig config, HttpClient http, ObjectMapper json) {
-        this.config = Objects.requireNonNull(config); this.http = Objects.requireNonNull(http); this.json = Objects.requireNonNull(json);
+        this(config, http, json, null);
     }
+    private KetebeClient(ClientConfig config, HttpClient http, ObjectMapper json, String projectId) {
+        this.config = Objects.requireNonNull(config);
+        this.http = Objects.requireNonNull(http);
+        this.json = Objects.requireNonNull(json);
+        this.projectId = projectId;
+    }
+
+    public KetebeClient withProject(String projectId) {
+        if (projectId == null || projectId.isBlank()) throw new IllegalArgumentException("projectId must not be blank");
+        return new KetebeClient(config, http, json, projectId);
+    }
+
+    public JsonNode listOrganizations() { return request("GET", "/v0/organizations", null, true, false); }
+    public JsonNode createOrganization(JsonNode body) { return request("POST", "/v0/organizations", body, false, false); }
+    public JsonNode getOrganization(String id) { return request("GET", "/v0/organizations/" + segment(id), null, true, false); }
+    public JsonNode updateOrganization(String id, JsonNode body) { return request("PATCH", "/v0/organizations/" + segment(id), body, false, false); }
+    public void deleteOrganization(String id) { request("DELETE", "/v0/organizations/" + segment(id), null, false, true); }
+    public JsonNode listProjects(String organizationId) { return request("GET", "/v0/organizations/" + segment(organizationId) + "/projects", null, true, false); }
+    public JsonNode createProject(String organizationId, JsonNode body) { return request("POST", "/v0/organizations/" + segment(organizationId) + "/projects", body, false, false); }
+    public JsonNode getProject(String id) { return request("GET", "/v0/projects/" + segment(id), null, true, false); }
+    public JsonNode updateProject(String id, JsonNode body) { return request("PATCH", "/v0/projects/" + segment(id), body, false, false); }
+    public void deleteProject(String id) { request("DELETE", "/v0/projects/" + segment(id), null, false, true); }
 
     public JsonNode listCollections() { return request("GET", "/v0/collections", null, true, false); }
     public JsonNode createCollection(JsonNode body) { return request("POST", "/v0/collections", body, false, false); }
@@ -83,6 +106,7 @@ public final class KetebeClient {
         for (int attempt = 0; attempt < attempts; attempt++) {
             try {
                 HttpRequest.Builder builder = HttpRequest.newBuilder(resolve(path)).timeout(config.timeout());
+                if (projectId != null) builder.header("x-ketebe-project", projectId);
                 if (body == null) builder.method(method, HttpRequest.BodyPublishers.noBody());
                 else builder.header("content-type", "application/json").method(method, HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)));
                 HttpResponse<String> response = http.send(builder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));

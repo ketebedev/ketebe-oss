@@ -69,3 +69,54 @@ type EmbeddingMigration map[string]any
 type StartEmbeddingMigration struct {
 	TargetProfile string `json:"target_profile"`
 }
+
+type ResourceLifecycle string
+
+const (
+	ResourceLifecycleActive    ResourceLifecycle = "active"
+	ResourceLifecycleSuspended ResourceLifecycle = "suspended"
+	ResourceLifecycleDeleting  ResourceLifecycle = "deleting"
+)
+
+type Organization struct {
+	ID            string            `json:"id"`
+	Name          string            `json:"name"`
+	Slug          string            `json:"slug"`
+	Lifecycle     ResourceLifecycle `json:"lifecycle"`
+	CreatedAtUnix uint64            `json:"created_at_unix"`
+	UpdatedAtUnix uint64            `json:"updated_at_unix"`
+}
+
+type Project struct {
+	ID             string            `json:"id"`
+	OrganizationID string            `json:"organization_id"`
+	Name           string            `json:"name"`
+	Slug           string            `json:"slug"`
+	Lifecycle      ResourceLifecycle `json:"lifecycle"`
+	CreatedAtUnix  uint64            `json:"created_at_unix"`
+	UpdatedAtUnix  uint64            `json:"updated_at_unix"`
+}
+
+type CreateOrganization struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+type UpdateOrganization struct {
+	Name      string            `json:"name"`
+	Slug      string            `json:"slug"`
+	Lifecycle ResourceLifecycle `json:"lifecycle"`
+}
+
+type CreateProject struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+type UpdateProject struct {
+	Name      string            `json:"name"`
+	Slug      string            `json:"slug"`
+	Lifecycle ResourceLifecycle `json:"lifecycle"`
+}

@@ -19,6 +19,7 @@ type ClientOptions struct {
 	Timeout      time.Duration
 	MaxRetries   int
 	RetryBackoff time.Duration
+	ProjectID    string
 }
 
 type Client struct {
@@ -27,6 +28,7 @@ type Client struct {
 	timeout      time.Duration
 	maxRetries   int
 	retryBackoff time.Duration
+	projectID    string
 }
 
 func NewClient(options ClientOptions) (*Client, error) {
@@ -49,7 +51,54 @@ func NewClient(options ClientOptions) (*Client, error) {
 	if hc == nil {
 		hc = &http.Client{}
 	}
-	return &Client{baseURL: base, httpClient: hc, timeout: timeout, maxRetries: options.MaxRetries, retryBackoff: backoff}, nil
+	return &Client{baseURL: base, httpClient: hc, timeout: timeout, maxRetries: options.MaxRetries, retryBackoff: backoff, projectID: options.ProjectID}, nil
+}
+
+func (c *Client) ListOrganizations(ctx context.Context) ([]Organization, error) {
+	var out []Organization
+	err := c.request(ctx, http.MethodGet, "/v0/organizations", nil, true, &out)
+	return out, err
+}
+func (c *Client) CreateOrganization(ctx context.Context, in CreateOrganization) (Organization, error) {
+	var out Organization
+	err := c.request(ctx, http.MethodPost, "/v0/organizations", in, false, &out)
+	return out, err
+}
+func (c *Client) GetOrganization(ctx context.Context, id string) (Organization, error) {
+	var out Organization
+	err := c.request(ctx, http.MethodGet, "/v0/organizations/"+segment(id), nil, true, &out)
+	return out, err
+}
+func (c *Client) UpdateOrganization(ctx context.Context, id string, in UpdateOrganization) (Organization, error) {
+	var out Organization
+	err := c.request(ctx, http.MethodPatch, "/v0/organizations/"+segment(id), in, false, &out)
+	return out, err
+}
+func (c *Client) DeleteOrganization(ctx context.Context, id string) error {
+	return c.request(ctx, http.MethodDelete, "/v0/organizations/"+segment(id), nil, false, nil)
+}
+func (c *Client) ListProjects(ctx context.Context, organizationID string) ([]Project, error) {
+	var out []Project
+	err := c.request(ctx, http.MethodGet, "/v0/organizations/"+segment(organizationID)+"/projects", nil, true, &out)
+	return out, err
+}
+func (c *Client) CreateProject(ctx context.Context, organizationID string, in CreateProject) (Project, error) {
+	var out Project
+	err := c.request(ctx, http.MethodPost, "/v0/organizations/"+segment(organizationID)+"/projects", in, false, &out)
+	return out, err
+}
+func (c *Client) GetProject(ctx context.Context, id string) (Project, error) {
+	var out Project
+	err := c.request(ctx, http.MethodGet, "/v0/projects/"+segment(id), nil, true, &out)
+	return out, err
+}
+func (c *Client) UpdateProject(ctx context.Context, id string, in UpdateProject) (Project, error) {
+	var out Project
+	err := c.request(ctx, http.MethodPatch, "/v0/projects/"+segment(id), in, false, &out)
+	return out, err
+}
+func (c *Client) DeleteProject(ctx context.Context, id string) error {
+	return c.request(ctx, http.MethodDelete, "/v0/projects/"+segment(id), nil, false, nil)
 }
 
 func (c *Client) ListCollections(ctx context.Context) ([]Collection, error) {
@@ -193,6 +242,9 @@ func (c *Client) requestOnce(ctx context.Context, method, path string, body any,
 	}
 	if body != nil {
 		req.Header.Set("content-type", "application/json")
+	}
+	if c.projectID != "" {
+		req.Header.Set("x-ketebe-project", c.projectID)
 	}
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
