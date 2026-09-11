@@ -40,7 +40,7 @@ This rule applies equally to:
 
 GitHub Actions is the final verification layer; it **MUST NOT be used as the first formatter, compiler, linter, or unit-test feedback loop** for changes that can be validated locally.
 
-When a change modifies code after the gate has passed, the affected gate **MUST be rerun before the next push**. When in doubt, rerun the full sequence.
+When a change modifies code after the gate has passed, the affected gate **MUST** be rerun before the next push. When in doubt, rerun the full sequence.
 
 Documentation-only changes that do not modify code, generated contracts, build configuration, dependencies, or executable examples do not require the full Rust workspace gate.
 
@@ -73,6 +73,8 @@ A useful PR description includes:
 - benchmark impact when relevant.
 
 Small, reviewable changes are preferred.
+
+Accepted contributions may be integrated through Ketebe's publication workflow; the original public pull request remains the contributor-facing review and credit record.
 
 ## Documentation
 
