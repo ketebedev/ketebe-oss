@@ -69,7 +69,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v0/collections": {
@@ -100,7 +105,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       },
       "post": {
         "operationId": "createCollection",
@@ -147,7 +157,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v0/collections/{collection_id}": {
@@ -175,7 +190,12 @@
           "404": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       },
       "delete": {
         "operationId": "deleteCollection",
@@ -189,7 +209,12 @@
           "404": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v0/collections/{collection_id}/lexical-schema": {
@@ -240,7 +265,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v0/collections/{collection_id}/records/{record_id}": {
@@ -294,7 +324,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       },
       "delete": {
         "operationId": "deleteRecord",
@@ -315,7 +350,12 @@
           "404": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v0/collections/{collection_id}/records:batchUpsert": {
@@ -367,7 +407,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v0/collections/{collection_id}/documents/{record_id}": {
@@ -417,7 +462,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       },
       "delete": {
         "operationId": "deleteDocument",
@@ -438,7 +488,12 @@
           "404": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v0/collections/{collection_id}/query": {
@@ -473,7 +528,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v1/collections/{collection_id}/query": {
@@ -530,7 +590,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v1/collections/{collection_id}/search-profiles": {
@@ -546,6 +611,9 @@
         ],
         "responses": {
           "200": {
+            "404": {
+              "$ref": "#/components/responses/Error"
+            },
             "description": "Search profiles",
             "content": {
               "application/json": {
@@ -556,12 +624,14 @@
                   }
                 }
               }
-            },
-            "404": {
-              "$ref": "#/components/responses/Error"
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       },
       "post": {
         "operationId": "createSearchProfile",
@@ -608,7 +678,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v1/collections/{collection_id}/search-profiles/{selector}": {
@@ -639,7 +714,12 @@
           "404": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       },
       "delete": {
         "operationId": "deleteSearchProfile",
@@ -660,7 +740,12 @@
           "404": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v0/jobs/{job_id}": {
@@ -691,7 +776,12 @@
           "404": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v0/jobs/{job_id}/cancel": {
@@ -725,7 +815,12 @@
           "409": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v0/collections/{collection_id}/embedding-migration": {
@@ -753,7 +848,12 @@
           "404": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       },
       "post": {
         "operationId": "startEmbeddingMigration",
@@ -793,7 +893,12 @@
               }
             }
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v0/collections/{collection_id}/embedding-migration/catch-up": {
@@ -824,7 +929,12 @@
           "409": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v0/collections/{collection_id}/embedding-migration/catch-up-job": {
@@ -853,7 +963,12 @@
           "404": {
             "$ref": "#/components/responses/Error"
           }
-        }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
       }
     },
     "/v0/collections/{collection_id}/embedding-migration/activate": {
@@ -877,6 +992,537 @@
                 }
               }
             }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectContext"
+          }
+        ]
+      }
+    },
+    "/v0/organizations": {
+      "get": {
+        "operationId": "listOrganizations",
+        "tags": [
+          "control-plane"
+        ],
+        "responses": {
+          "200": {
+            "description": "Organizations visible to the authenticated Principal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Organization"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createOrganization",
+        "tags": [
+          "control-plane"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrganizationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Organization created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organization"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v0/organizations/{organization_id}": {
+      "parameters": [
+        {
+          "name": "organization_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getOrganization",
+        "tags": [
+          "control-plane"
+        ],
+        "responses": {
+          "200": {
+            "description": "Organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organization"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateOrganization",
+        "tags": [
+          "control-plane"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrganizationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Organization updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organization"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteOrganization",
+        "tags": [
+          "control-plane"
+        ],
+        "description": "Physically deletes an Organization only after its lifecycle is deleting and it owns no Projects.",
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v0/organizations/{organization_id}/projects": {
+      "parameters": [
+        {
+          "name": "organization_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "listProjects",
+        "tags": [
+          "control-plane"
+        ],
+        "responses": {
+          "200": {
+            "description": "Projects in Organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Project"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createProject",
+        "tags": [
+          "control-plane"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Project created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v0/projects/{project_id}": {
+      "parameters": [
+        {
+          "name": "project_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "getProject",
+        "tags": [
+          "control-plane"
+        ],
+        "responses": {
+          "200": {
+            "description": "Project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateProject",
+        "tags": [
+          "control-plane"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Project updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteProject",
+        "tags": [
+          "control-plane"
+        ],
+        "description": "Physically deletes a Project only after lifecycle is deleting and no Collections remain.",
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v0/organizations/{organization_id}/memberships": {
+      "parameters": [
+        {
+          "name": "organization_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "listOrganizationMemberships",
+        "tags": [
+          "control-plane"
+        ],
+        "responses": {
+          "200": {
+            "description": "Organization memberships",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrganizationMembership"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v0/organizations/{organization_id}/memberships/{subject}": {
+      "parameters": [
+        {
+          "name": "organization_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "subject",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "put": {
+        "operationId": "upsertOrganizationMembership",
+        "tags": [
+          "control-plane"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizationMembershipRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Organization membership",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationMembership"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteOrganizationMembership",
+        "tags": [
+          "control-plane"
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v0/projects/{project_id}/memberships": {
+      "parameters": [
+        {
+          "name": "project_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "operationId": "listProjectMemberships",
+        "tags": [
+          "control-plane"
+        ],
+        "responses": {
+          "200": {
+            "description": "Project memberships",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectMembership"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v0/projects/{project_id}/memberships/{subject}": {
+      "parameters": [
+        {
+          "name": "project_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "subject",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "put": {
+        "operationId": "upsertProjectMembership",
+        "tags": [
+          "control-plane"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectMembershipRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Project membership",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectMembership"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/Error"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteProjectMembership",
+        "tags": [
+          "control-plane"
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
           },
           "404": {
             "$ref": "#/components/responses/Error"
@@ -922,6 +1568,16 @@
         "in": "path",
         "required": true,
         "description": "Profile name for latest resolution or pinned name@version.",
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "ProjectContext": {
+        "name": "X-Ketebe-Project",
+        "in": "header",
+        "required": false,
+        "description": "Explicit Project selection for human multi-project workflows. Ketebe authorizes the selected Project server-side. Project-scoped workload credentials cannot be rebound by this header.",
         "schema": {
           "type": "string",
           "minLength": 1
@@ -1457,7 +2113,243 @@
         "type": "object",
         "description": "Embedding migration state and cutover frontier.",
         "additionalProperties": true
+      },
+      "ResourceLifecycle": {
+        "type": "string",
+        "enum": [
+          "active",
+          "suspended",
+          "deleting"
+        ]
+      },
+      "Organization": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "lifecycle",
+          "created_at_unix",
+          "updated_at_unix"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/ResourceLifecycle"
+          },
+          "created_at_unix": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "updated_at_unix": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        }
+      },
+      "Project": {
+        "type": "object",
+        "required": [
+          "id",
+          "organization_id",
+          "name",
+          "slug",
+          "lifecycle",
+          "created_at_unix",
+          "updated_at_unix"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "organization_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/ResourceLifecycle"
+          },
+          "created_at_unix": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "updated_at_unix": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        }
+      },
+      "CreateOrganizationRequest": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateOrganizationRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "slug",
+          "lifecycle"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/ResourceLifecycle"
+          }
+        }
+      },
+      "CreateProjectRequest": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateProjectRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "slug",
+          "lifecycle"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/ResourceLifecycle"
+          }
+        }
+      },
+      "OrganizationRole": {
+        "type": "string",
+        "enum": [
+          "owner",
+          "admin",
+          "member",
+          "billing_admin"
+        ]
+      },
+      "ProjectRole": {
+        "type": "string",
+        "enum": [
+          "reader",
+          "editor",
+          "owner"
+        ]
+      },
+      "OrganizationMembership": {
+        "type": "object",
+        "required": [
+          "organization_id",
+          "subject",
+          "role"
+        ],
+        "properties": {
+          "organization_id": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/OrganizationRole"
+          }
+        }
+      },
+      "ProjectMembership": {
+        "type": "object",
+        "required": [
+          "project_id",
+          "subject",
+          "role"
+        ],
+        "properties": {
+          "project_id": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ProjectRole"
+          }
+        }
+      },
+      "OrganizationMembershipRequest": {
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/OrganizationRole"
+          }
+        }
+      },
+      "ProjectMembershipRequest": {
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/ProjectRole"
+          }
+        }
       }
     }
-  }
+  },
+  "x-ketebe-project-context-header": "X-Ketebe-Project"
 }

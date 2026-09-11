@@ -4,7 +4,7 @@ use crate::multi_search::{
     CollectionSearchResult, CollectionSearchStatus, ProvenancedSearchHit, SearchManyOutput,
     SearchManyParams,
 };
-use crate::observability::ObservedHttpClient;
+use crate::observability::{ObservedHttpClient, current_project_id};
 use crate::retrieval::{
     AgentRecordId, FetchRecordsRequest, FetchRecordsResponse, GetRecordsOutput, RecordFetchError,
     RecordView,
@@ -71,11 +71,40 @@ impl KetebeApi {
             Some(token) => config.with_bearer_token(token),
             None => config,
         };
+        let config = match current_project_id() {
+            Some(project_id) => config.with_project(project_id),
+            None => config,
+        };
         ketebe_sdk::Client::new(config)
     }
 
     pub async fn probe(&self) -> Result<(), ketebe_sdk::Error> {
         self.client.health().await
+    }
+
+    pub async fn list_organizations(
+        &self,
+        bearer_token: Option<&str>,
+    ) -> Result<Vec<ketebe_sdk::Organization>, ketebe_sdk::Error> {
+        self.client_for(bearer_token)?.list_organizations().await
+    }
+
+    pub async fn list_projects(
+        &self,
+        organization_id: &str,
+        bearer_token: Option<&str>,
+    ) -> Result<Vec<ketebe_sdk::Project>, ketebe_sdk::Error> {
+        self.client_for(bearer_token)?
+            .list_projects(organization_id)
+            .await
+    }
+
+    pub async fn get_project(
+        &self,
+        project_id: &str,
+        bearer_token: Option<&str>,
+    ) -> Result<ketebe_sdk::Project, ketebe_sdk::Error> {
+        self.client_for(bearer_token)?.get_project(project_id).await
     }
 
     pub async fn list_collections(

@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod collection;
+mod control_plane;
 mod data_encryption;
 mod error;
 mod identifiers;
@@ -15,6 +16,10 @@ pub use collection::{
     ChunkingPolicy, ChunkingStructure, CollectionConfig, CollectionIngestionConfig, DistanceMetric,
     LexicalAnalyzerConfig, LexicalAnalyzerKind, SemanticChunkingPolicy, TokenChunkingPolicy,
     TokenizerKind,
+};
+pub use control_plane::{
+    ControlPlaneDomainError, Organization, OrganizationId, Project, ResourceLifecycleState,
+    ResourceTimestamps,
 };
 pub use data_encryption::{
     DataEncryptionError, DataEncryptionKeyRef, DataEncryptionKeyResolver, DataEncryptionKeyVersion,

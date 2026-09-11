@@ -60,6 +60,21 @@ impl CollectionNamespaceCatalog {
         })
     }
 
+    pub fn project_ids(&self) -> Result<Vec<ProjectId>, CollectionNamespaceError> {
+        let state = self
+            .state
+            .lock()
+            .map_err(|_| CollectionNamespaceError::LockPoisoned)?;
+        state
+            .projects
+            .keys()
+            .map(|project| {
+                ProjectId::new(project.clone())
+                    .map_err(|error| CollectionNamespaceError::CorruptId(error.to_string()))
+            })
+            .collect()
+    }
+
     /// Resolves a name only within the supplied project namespace.
     pub fn resolve(
         &self,

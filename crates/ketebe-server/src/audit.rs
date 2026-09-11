@@ -7,6 +7,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
+const MAX_AUDIT_DIMENSION_BYTES: usize = 256;
+const MAX_CORRELATION_ID_BYTES: usize = 128;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AuditCategory {
@@ -31,6 +34,53 @@ pub enum AuditOrigin {
     Internal,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AuditContext {
+    origin: AuditOrigin,
+    correlation_id: Option<String>,
+}
+
+impl AuditContext {
+    #[must_use]
+    pub fn new(origin: AuditOrigin) -> Self {
+        Self {
+            origin,
+            correlation_id: None,
+        }
+    }
+
+    #[must_use]
+    pub fn with_correlation_id(mut self, correlation_id: impl Into<String>) -> Self {
+        self.correlation_id = bounded_non_empty(correlation_id.into(), MAX_CORRELATION_ID_BYTES);
+        self
+    }
+
+    #[must_use]
+    pub fn origin(&self) -> AuditOrigin {
+        self.origin
+    }
+
+    #[must_use]
+    pub fn correlation_id(&self) -> Option<&str> {
+        self.correlation_id.as_deref()
+    }
+
+    #[must_use]
+    pub fn apply(&self, mut event: AuditEvent) -> AuditEvent {
+        event.origin = self.origin;
+        if let Some(correlation_id) = &self.correlation_id {
+            event.correlation_id = Some(correlation_id.clone());
+        }
+        event
+    }
+}
+
+impl Default for AuditContext {
+    fn default() -> Self {
+        Self::new(AuditOrigin::Internal)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuditEvent {
     timestamp_ms: u64,
@@ -38,6 +88,7 @@ pub struct AuditEvent {
     action: String,
     result: AuditResult,
     actor_subject: Option<String>,
+    organization_id: Option<String>,
     project_id: Option<String>,
     resource_kind: Option<String>,
     resource_id: Option<String>,
@@ -59,6 +110,7 @@ impl AuditEvent {
             action: action.into(),
             result,
             actor_subject: None,
+            organization_id: None,
             project_id: None,
             resource_kind: None,
             resource_id: None,
@@ -69,27 +121,53 @@ impl AuditEvent {
 
     #[must_use]
     pub fn with_actor(mut self, subject: impl Into<String>) -> Self {
-        self.actor_subject = non_empty(subject.into());
+        self.actor_subject = bounded_non_empty(subject.into(), MAX_AUDIT_DIMENSION_BYTES);
+        self
+    }
+
+    #[must_use]
+    pub fn with_organization(mut self, organization_id: impl Into<String>) -> Self {
+        self.organization_id = bounded_non_empty(organization_id.into(), MAX_AUDIT_DIMENSION_BYTES);
         self
     }
 
     #[must_use]
     pub fn with_project(mut self, project_id: impl Into<String>) -> Self {
-        self.project_id = non_empty(project_id.into());
+        self.project_id = bounded_non_empty(project_id.into(), MAX_AUDIT_DIMENSION_BYTES);
         self
     }
 
     #[must_use]
     pub fn with_resource(mut self, kind: impl Into<String>, id: impl Into<String>) -> Self {
-        self.resource_kind = non_empty(kind.into());
-        self.resource_id = non_empty(id.into());
+        self.resource_kind = bounded_non_empty(kind.into(), MAX_AUDIT_DIMENSION_BYTES);
+        self.resource_id = bounded_non_empty(id.into(), MAX_AUDIT_DIMENSION_BYTES);
         self
     }
 
     #[must_use]
     pub fn with_correlation_id(mut self, correlation_id: impl Into<String>) -> Self {
-        self.correlation_id = non_empty(correlation_id.into());
+        self.correlation_id = bounded_non_empty(correlation_id.into(), MAX_CORRELATION_ID_BYTES);
         self
+    }
+
+    #[must_use]
+    pub fn action(&self) -> &str {
+        &self.action
+    }
+
+    #[must_use]
+    pub fn origin(&self) -> AuditOrigin {
+        self.origin
+    }
+
+    #[must_use]
+    pub fn resource_kind(&self) -> Option<&str> {
+        self.resource_kind.as_deref()
+    }
+
+    #[must_use]
+    pub fn resource_id(&self) -> Option<&str> {
+        self.resource_id.as_deref()
     }
 
     #[must_use]
@@ -108,6 +186,11 @@ impl AuditEvent {
     }
 
     #[must_use]
+    pub fn organization_id(&self) -> Option<&str> {
+        self.organization_id.as_deref()
+    }
+
+    #[must_use]
     pub fn project_id(&self) -> Option<&str> {
         self.project_id.as_deref()
     }
@@ -118,8 +201,19 @@ impl AuditEvent {
     }
 }
 
-fn non_empty(value: String) -> Option<String> {
-    (!value.trim().is_empty()).then_some(value)
+fn bounded_non_empty(value: String, max_bytes: usize) -> Option<String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return None;
+    }
+    if value.len() <= max_bytes {
+        return Some(value.to_string());
+    }
+    let mut boundary = max_bytes;
+    while !value.is_char_boundary(boundary) {
+        boundary = boundary.saturating_sub(1);
+    }
+    Some(value[..boundary].to_string())
 }
 
 fn now_ms() -> u64 {
@@ -262,6 +356,7 @@ mod tests {
             AuditOrigin::Http,
         )
         .with_actor("subject-a")
+        .with_organization("org-a")
         .with_project("project-a")
         .with_correlation_id("request-1");
         let json = serde_json::to_string(&event).unwrap();
@@ -269,8 +364,35 @@ mod tests {
         assert!(!json.contains("secret"));
         assert!(!json.contains("payload"));
         assert!(json.contains("subject-a"));
+        assert!(json.contains("org-a"));
         assert!(json.contains("project-a"));
         assert!(json.contains("request-1"));
+    }
+
+    #[test]
+    fn audit_dimensions_and_correlation_ids_are_bounded() {
+        let oversized_actor = "a".repeat(MAX_AUDIT_DIMENSION_BYTES + 50);
+        let oversized_request = "r".repeat(MAX_CORRELATION_ID_BYTES + 50);
+        let event = AuditContext::new(AuditOrigin::Http)
+            .with_correlation_id(oversized_request)
+            .apply(
+                AuditEvent::new(
+                    AuditCategory::Authorization,
+                    "control_plane",
+                    AuditResult::Allowed,
+                    AuditOrigin::Internal,
+                )
+                .with_actor(oversized_actor),
+            );
+        assert_eq!(
+            event.actor_subject().unwrap().len(),
+            MAX_AUDIT_DIMENSION_BYTES
+        );
+        assert_eq!(
+            event.correlation_id().unwrap().len(),
+            MAX_CORRELATION_ID_BYTES
+        );
+        assert_eq!(event.origin, AuditOrigin::Http);
     }
 
     #[test]

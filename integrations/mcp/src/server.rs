@@ -12,7 +12,11 @@ use crate::{
     auth::{AuthMode, RequestCredential},
     context::{RetrieveContextOutput, RetrieveContextParams, assemble_context},
     diagnostics::ExplainSearchOutput,
-    discovery::{CollectionParams, CollectionStatsOutput, CollectionView, ListCollectionsOutput},
+    discovery::{
+        CollectionParams, CollectionStatsOutput, CollectionView, ListCollectionsOutput,
+        ListOrganizationsOutput, ListProjectsOutput, OrganizationProjectsParams, OrganizationView,
+        ProjectParams, ProjectView,
+    },
     embedding_lifecycle::{ReembeddingParams, ReembeddingStatusParams, ReembeddingView},
     fusion::{FusedSearchOutput, FusedSearchParams},
     jobs::{JobParams, JobView, ListJobsOutput},
@@ -115,6 +119,68 @@ impl KetebeMcpServer {
         } else {
             "not_ready".to_string()
         }
+    }
+
+    #[tool(
+        description = "List Ketebe Organizations visible to the authenticated principal through the shared control-plane authorization boundary.",
+        annotations(read_only_hint = true)
+    )]
+    async fn list_organizations(
+        &self,
+        context: RequestContext<RoleServer>,
+    ) -> Result<Json<ListOrganizationsOutput>, String> {
+        let token = self.bearer_token(&context);
+        let organizations = self
+            .api
+            .list_organizations(token.as_deref())
+            .await
+            .map_err(Self::discovery_error)?;
+        Ok(Json(ListOrganizationsOutput {
+            organizations: organizations
+                .into_iter()
+                .map(OrganizationView::from)
+                .collect(),
+        }))
+    }
+
+    #[tool(
+        description = "List Projects in one authorized Ketebe Organization. Visibility is decided by Ketebe; MCP does not infer or manufacture tenancy.",
+        annotations(read_only_hint = true)
+    )]
+    async fn list_projects(
+        &self,
+        Parameters(OrganizationProjectsParams { organization_id }): Parameters<
+            OrganizationProjectsParams,
+        >,
+        context: RequestContext<RoleServer>,
+    ) -> Result<Json<ListProjectsOutput>, String> {
+        let token = self.bearer_token(&context);
+        let projects = self
+            .api
+            .list_projects(&organization_id, token.as_deref())
+            .await
+            .map_err(Self::discovery_error)?;
+        Ok(Json(ListProjectsOutput {
+            projects: projects.into_iter().map(ProjectView::from).collect(),
+        }))
+    }
+
+    #[tool(
+        description = "Describe one Ketebe Project visible to the authenticated principal. Use the X-Ketebe-Project request header to explicitly select this Project for project-scoped collection, search, ingestion and job tools.",
+        annotations(read_only_hint = true)
+    )]
+    async fn describe_project(
+        &self,
+        Parameters(ProjectParams { project_id }): Parameters<ProjectParams>,
+        context: RequestContext<RoleServer>,
+    ) -> Result<Json<ProjectView>, String> {
+        let token = self.bearer_token(&context);
+        self.api
+            .get_project(&project_id, token.as_deref())
+            .await
+            .map(ProjectView::from)
+            .map(Json)
+            .map_err(Self::discovery_error)
     }
 
     #[tool(
@@ -604,7 +670,7 @@ impl KetebeMcpServer {
 
 #[tool_handler(
     name = "ketebe-mcp",
-    instructions = "Ketebe MCP integration. Discovery, retrieval, profile discovery, embedding migration status, Kafka-native stream ingestion lifecycle, and asynchronous job inspection reuse Ketebe public API authorization and never expose storage topology, WAL access, broker/provider endpoints, secret references, or credentials. Write tools including create/pause/resume stream ingestion, start_reembedding, and job cancellation are disabled by default and require both MCP write policy enablement and normal Ketebe authorization. MCP never owns Kafka offsets or ingestion correctness; Kafka delivery and WAL durability remain server-side Ketebe responsibilities. Prefer search profiles for stable server-managed retrieval policy; use embedding/reranker profile discovery to select safe configured capabilities, search_fused for multi-source fusion/deduplication and server-side reranking, retrieve_context for LLM-ready cited context with deterministic budgets, explain_search for safe public retrieval diagnostics, and ingest_documents for server-side chunking/embedding when writes are explicitly enabled."
+    instructions = "Ketebe MCP integration. Organization/Project discovery, collection discovery, retrieval, profile discovery, embedding migration status, Kafka-native stream ingestion lifecycle, and asynchronous job inspection reuse Ketebe public API authorization. Human multi-project workflows explicitly select a Project with the X-Ketebe-Project transport header; Ketebe authorizes that selection and workload credentials cannot be rebound by the header. and never expose storage topology, WAL access, broker/provider endpoints, secret references, or credentials. Write tools including create/pause/resume stream ingestion, start_reembedding, and job cancellation are disabled by default and require both MCP write policy enablement and normal Ketebe authorization. MCP never owns Kafka offsets or ingestion correctness; Kafka delivery and WAL durability remain server-side Ketebe responsibilities. Prefer search profiles for stable server-managed retrieval policy; use embedding/reranker profile discovery to select safe configured capabilities, search_fused for multi-source fusion/deduplication and server-side reranking, retrieve_context for LLM-ready cited context with deterministic budgets, explain_search for safe public retrieval diagnostics, and ingest_documents for server-side chunking/embedding when writes are explicitly enabled."
 )]
 impl ServerHandler for KetebeMcpServer {}
 

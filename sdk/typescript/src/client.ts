@@ -13,6 +13,12 @@ import type {
   RecordId,
   RecordUpsert,
   StartEmbeddingMigration,
+  Organization,
+  Project,
+  CreateOrganization,
+  UpdateOrganization,
+  CreateProject,
+  UpdateProject,
 } from "./models.js";
 
 const JSONBig = JSONBigFactory({ useNativeBigInt: true });
@@ -23,6 +29,7 @@ export interface ClientOptions {
   maxRetries?: number;
   retryBackoffMs?: number;
   fetchImpl?: typeof fetch;
+  projectId?: string;
 }
 
 export class Client {
@@ -31,6 +38,7 @@ export class Client {
   private readonly maxRetries: number;
   private readonly retryBackoffMs: number;
   private readonly fetchImpl: typeof fetch;
+  private readonly projectId: string | undefined;
 
   constructor(options: ClientOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
@@ -38,6 +46,47 @@ export class Client {
     this.maxRetries = options.maxRetries ?? 2;
     this.retryBackoffMs = options.retryBackoffMs ?? 50;
     this.fetchImpl = options.fetchImpl ?? fetch;
+    this.projectId = options.projectId;
+  }
+
+  listOrganizations(): Promise<Organization[]> {
+    return this.request("GET", "/v0/organizations", undefined, true);
+  }
+
+  createOrganization(request: CreateOrganization): Promise<Organization> {
+    return this.request("POST", "/v0/organizations", request, false);
+  }
+
+  getOrganization(id: string): Promise<Organization> {
+    return this.request("GET", `/v0/organizations/${encodeURIComponent(id)}`, undefined, true);
+  }
+
+  updateOrganization(id: string, request: UpdateOrganization): Promise<Organization> {
+    return this.request("PATCH", `/v0/organizations/${encodeURIComponent(id)}`, request, false);
+  }
+
+  async deleteOrganization(id: string): Promise<void> {
+    await this.request("DELETE", `/v0/organizations/${encodeURIComponent(id)}`, undefined, false, true);
+  }
+
+  listProjects(organizationId: string): Promise<Project[]> {
+    return this.request("GET", `/v0/organizations/${encodeURIComponent(organizationId)}/projects`, undefined, true);
+  }
+
+  createProject(organizationId: string, request: CreateProject): Promise<Project> {
+    return this.request("POST", `/v0/organizations/${encodeURIComponent(organizationId)}/projects`, request, false);
+  }
+
+  getProject(id: string): Promise<Project> {
+    return this.request("GET", `/v0/projects/${encodeURIComponent(id)}`, undefined, true);
+  }
+
+  updateProject(id: string, request: UpdateProject): Promise<Project> {
+    return this.request("PATCH", `/v0/projects/${encodeURIComponent(id)}`, request, false);
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    await this.request("DELETE", `/v0/projects/${encodeURIComponent(id)}`, undefined, false, true);
   }
 
   async listCollections(): Promise<Collection[]> {
@@ -126,8 +175,9 @@ export class Client {
       const timer = setTimeout(() => controller.abort(), this.timeoutMs);
       try {
         const init: RequestInit = { method, signal: controller.signal };
+        if (this.projectId !== undefined) init.headers = { "x-ketebe-project": this.projectId };
         if (body !== undefined) {
-          init.headers = { "content-type": "application/json" };
+          init.headers = { ...(init.headers ?? {}), "content-type": "application/json" };
           init.body = JSONBig.stringify(body);
         }
         const response = await this.fetchImpl(`${this.baseUrl}${path}`, init);
